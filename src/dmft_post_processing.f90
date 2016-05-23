@@ -1,3 +1,0 @@
-subroutine dmft_post_processing
-
-end subroutine dmft_post_processing

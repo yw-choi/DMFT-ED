@@ -2,9 +2,9 @@ module matsubara_grid
 
     use mpi
     use constants
-    
+    use dmft_params
+
     integer :: &
-        nw,           & ! Total number of matsubara frequencies
         nwloc           ! number of matsubara frequencies local to the node
     
     integer, allocatable :: &
@@ -14,15 +14,12 @@ module matsubara_grid
     double precision, allocatable :: &
         omega(:)        ! omega(nwloc) matsubara frequencies local to the node
 
+    public
 contains
 
-    subroutine setup_matsubara_grid(beta, nw)
-
-        integer :: namw
-
-        if (taskid.eq.0) then
-            !@TODO print grid distributino information
-        endif
+    subroutine setup_matsubara_grid
+        integer :: namw, i
+        character(len=200) :: msg
 
         nwloc = nw/nprocs
         namw = mod(nw,nprocs)
@@ -47,6 +44,17 @@ contains
             do i = 1, nwloc
                 omega(i) = (2.0D0*float(ishift+i-1)+1)*pi/beta
             enddo
+        endif
+
+        if (master) then
+            write(*,'(a)') repeat("=",80)
+            write(*,'(4x,a)') "Matsubara Frequency Grid"
+            write(*,'(a)') repeat("=",80)
+            do i=1,nprocs
+                write(*,'(4x,a4,I4,1x,a1,1x,I6)') "node",i,":",nw_procs(i-1)
+            enddo
+            write(*,'(4x,a,I6)') "Total    : ",nw
+            write(*,'(a)') repeat("=",80)
         endif
 
     end subroutine setup_matsubara_grid

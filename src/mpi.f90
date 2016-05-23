@@ -13,7 +13,7 @@ module mpi
 
     public
 contains
-    subroutine init_mpi
+    subroutine mpi_setup
 
         comm = MPI_Comm_world
 
@@ -23,9 +23,9 @@ contains
 
         master = taskid.eq.0
 
-    end subroutine init_mpi
+    end subroutine mpi_setup
 
-    subroutine finalize_mpi
+    subroutine mpi_shutdown
         call MPI_Finalize(mpierr)
-    end subroutine finalize_mpi
+    end subroutine mpi_shutdown
 end module mpi

@@ -1,4 +1,9 @@
 module impurity_solver
+!==============================================================================
+! Wrapper module for impurity solvers. 
+! This module separates the specific implementation of the impurity solver with
+! DMFT module. 
+!==============================================================================
     use ed_solver
     use fdf
     use utils
@@ -7,6 +12,18 @@ module impurity_solver
     character(len=100) :: solver
 
 contains
+
+    subroutine solver_init
+
+        solver = fdf_get("DMFT.Solver", "ED")
+
+        select case(solver)
+            case ("ED")
+                call ed_read_options
+            case default
+                call die("impurity_solver", "Specfieid solver is not implemented.")
+        end select
+    end subroutine solver_init
 
     subroutine solve
 
@@ -18,17 +35,5 @@ contains
         end select
 
     end subroutine solve
-
-    subroutine read_solver_options
-
-        solver = fdf_get("DMFT.Solver", "ED")
-
-        select case(solver)
-            case ("ED")
-                call ed_read_options
-            case default
-                call die("impurity_solver", "Specfieid solver is not implemented.")
-        end select
-    end subroutine read_solver_options
 
 end module impurity_solver

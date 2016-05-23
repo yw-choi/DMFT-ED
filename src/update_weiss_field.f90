@@ -1,3 +1,0 @@
-subroutine update_weiss_field
-
-end subroutine update_weiss_field

@@ -2,11 +2,11 @@
 .PHONY: fdf
 include ../arch.make
 
-PROGRAM = dmft_ed
+PROGRAM = main
 
-OBJS = $(PROGRAM).o constants.o check_dmft_converged.o dmft.o dmft_finalize.o dmft_init.o \
-	   dmft_post_processing.o ed_solver.o matsubara_grid.o mpi.o new_local_green_ftn.o \
-	   update_weiss_field.o impurity_solver.o
+OBJS = $(PROGRAM).o constants.o dmft.o \
+	   ed_solver.o matsubara_grid.o mpi.o \
+	   impurity_solver.o dmft_params.o
 
 default: $(PROGRAM)
 ##################
@@ -21,14 +21,10 @@ FFLAGS+=-I./fdf
 ### Dependencies ###
 ####################
 $(OBJS): $(FDF)
-dmft_init.o: mpi.o impurity_solver.o dmft.o
-dmft_ed.o: dmft_init.o dmft_finalize.o matsubara_grid.o
-
-matsubara_grid.o: constants.o
-dmft.o: matsubara_grid.o
-ed_solver.o: dmft.o matsubara_grid.o
+$(PROGRAM).o: dmft.o mpi.o
+dmft.o: dmft_params.o  matsubara_grid.o impurity_solver.o
 impurity_solver.o: ed_solver.o
-
+matsubara_grid.o: constants.o
 
 $(FDF): 
 	cd fdf ; $(MAKE);
@@ -41,4 +37,4 @@ clean:
 	rm -f *.mod
 	(cd fdf ; $(MAKE) clean)
 
-#%.o:%.mod
+%.o:%.mod

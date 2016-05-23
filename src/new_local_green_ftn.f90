@@ -1,3 +1,0 @@
-subroutine new_local_green_ftn
-
-end subroutine new_local_green_ftn

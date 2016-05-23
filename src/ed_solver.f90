@@ -1,6 +1,6 @@
 module ed_solver
     use mpi
-    use dmft, only: norb
+    use dmft_params
 
     implicit none
 
