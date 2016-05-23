@@ -13,7 +13,7 @@ program main
         write(6,*) "Number of processors = ", nprocs
         write(6,"(a)") repeat("=",80)
     endif
-
+    
     call dmft_init
     call dmft_loop
     call dmft_post_processing
