@@ -31,9 +31,7 @@ INCFLAGS:=$(INCFLAGS) $(LOCAL_INCFLAGS)
 # Library module libfdf.a
 default: module
 module: libfdf.a
-	#cp libfdf.a ..
-	#@cp -p *.*d ..     
-#
+
 libfdf.a: check_flags iso_fortran_env.o fdf.o io_fdf.o parse.o utils.o prec.o 
 	$(AR) $(ARFLAGS_EXTRA) cru libfdf.a \
                 iso_fortran_env.o fdf.o io_fdf.o parse.o utils.o prec.o 

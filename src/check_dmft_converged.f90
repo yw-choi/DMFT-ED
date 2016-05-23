@@ -1,0 +1,3 @@
+subroutine check_dmft_converged(converged)
+
+end subroutine check_dmft_converged
