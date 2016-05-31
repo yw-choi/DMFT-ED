@@ -21,7 +21,6 @@ module ed_solver
 contains
 
     subroutine ed_solve
-
     end subroutine ed_solve
 
     subroutine ed_read_options
@@ -72,8 +71,8 @@ contains
             enddo
         endif
 
-        nstep = fdf_integer("DMFT.ED.ContinuedFractionStep", 50)
-        nev = fdf_integer("DMFT.ED.Nev",30)
+        nstep = fdf_integer("DMFT.ED.ContinuedFractionStep", 20)
+        nev = fdf_integer("DMFT.ED.Nev",20)
 
         if (master) then
             write(6,*)

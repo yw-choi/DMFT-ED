@@ -1,0 +1,22 @@
+#
+DMFT.Na                        1
+DMFT.nspin                     1
+DMFT.Norb                      2
+
+DMFT.U                         1.000000000       
+DMFT.J                         0.3000000000      
+DMFT.Mu                        1.000000000       
+DMFT.beta                      100.0000000       
+
+DMFT.MaxIterations             100     
+DMFT.ScfTolerance              1.0E-04 
+DMFT.Matsubara.Nw              2000    
+DMFT.Real.Nw                   4000
+DMFT.Nk                        10000
+DMFT.SpectralBroadening        0.01
+
+DMFT.Solver                    ED
+DMFT.ED.Nbath                  4
+DMFT.ED.Nsector                1
+DMFT.ED.ContinuedFractionStep  50
+DMFT.ED.Nev                    30

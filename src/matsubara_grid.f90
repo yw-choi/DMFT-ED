@@ -55,6 +55,7 @@ contains
             enddo
             write(*,'(4x,a,I6)') "Total    : ",nw
             write(*,'(a)') repeat("=",80)
+            write(*,*)
         endif
 
     end subroutine setup_matsubara_grid

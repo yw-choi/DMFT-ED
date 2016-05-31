@@ -8,7 +8,7 @@ FFTW    = $(MKLROOT)/interfaces/fftw3xf/libfftw3xf_intel.a
 ARPACK  = /Users/ywchoe/opt/ARPACK/libarpack_OSX.a
 PARPACK = /Users/ywchoe/opt/ARPACK/parpack_MPI-OSX.a
 MKL     = -mkl=sequential
-LIBS    = $(PARPACK) $(ARPACK) $(FFTW)
+LIBS    = $(MKL) $(PARPACK) $(ARPACK) $(FFTW)
 
 ################################################################
 DEFS            = -DMPI 

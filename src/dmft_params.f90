@@ -4,9 +4,12 @@ module dmft_params
 ! =============================================================================
 
     integer ::  &
+        nspin,  & ! number of spin components 
+        na,    & ! number of atoms in unit cell
         norb,   & ! number of impurity orbitals
         nloop,  & ! maximum number of DMFT loop
         nw,     & ! Total number of matsubara frequencies
+        nwreal, & ! Total number of real frequencies
         nk
 
     double precision :: &
@@ -34,6 +37,16 @@ contains
             write(6,'(a)') repeat("=",80)
         endif
 
+        na  = fdf_get("DMFT.Na",0)
+        nspin = fdf_get("DMFT.nspin",1)
+        if (na.eq.0.and.master) then
+            call die("read_dmft_params", "Number of atoms must be larger than 0.")
+        endif
+
+        if (nspin.gt.2.and.master) then
+            call die("read_dmft_params", "currently, nspin=1,2 is implemented.")
+        endif
+
         norb = fdf_get("DMFT.Norb",0)
         if (norb.eq.0.and.master) then
             call die("read_dmft_params", "Number of orbitals must be larger than 0.")
@@ -48,10 +61,15 @@ contains
         scf_tol = fdf_get("DMFT.ScfTolerance", 1d-4)
 
         nw = fdf_get("DMFT.Matsubara.Nw",2000)
+        nwreal = fdf_get("DMFT.Real.Nw",4000)
         nk = fdf_get("DMFT.Nk",10000)
         broadening = fdf_get("DMFT.SpectralBroadening", 0.02D0)
 
         if (master) then
+            write(msg,*) "Number of atoms in unit cell"
+            write(6,'(3x,a40,2x,a,2x,I8)') msg, '=', na
+            write(msg,*) "Number of spin components"
+            write(6,'(3x,a40,2x,a,2x,I8)') msg, '=', nspin
             write(msg,*) "Number of impurity orbitals"
             write(6,'(3x,a40,2x,a,2x,I8)') msg, '=', Norb
             write(msg,*) "U"
@@ -70,6 +88,8 @@ contains
             write(6,'(3x,a40,2x,a,2x,I8)') msg, '=', nk
             write(msg,*) "Number of Matsubara Frequencies"
             write(6,'(3x,a40,2x,a,2x,I8)') msg, '=', nw
+            write(msg,*) "Number of Real Frequencies"
+            write(6,'(3x,a40,2x,a,2x,I8)') msg, '=', nwreal
             write(6,'(a)') repeat("=",80)
             write(6,*)
         endif
