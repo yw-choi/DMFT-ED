@@ -27,6 +27,7 @@ dmft.o: dmft_params.o  matsubara_grid.o impurity_solver.o dmft_lattice.o
 impurity_solver.o: ed_solver.o
 matsubara_grid.o: constants.o
 dmft_lattice.o: numeric_utils.o
+ed_solver.o: ed_projection.o
 
 $(FDF): 
 	cd fdf ; $(MAKE);

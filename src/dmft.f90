@@ -57,6 +57,8 @@ contains
     end subroutine dmft_init
 
     subroutine dmft_loop
+        integer :: ispin, ia
+
         if (master) then
             write(6,"(a)") repeat("=",80)
             write(*,*) "Start of DMFT SCF loop."
@@ -71,7 +73,16 @@ contains
                 write(*,*) "DMFT Loop ", iloop
             endif
 
-            call solve
+            do ispin=1,nspin
+                do ia=1,na
+                    if (master) then
+                        write(*,"(a,I1,a,I2,a)") "Solving impurity problem for (ispin,ia)=(",ispin,",",ia,")..."
+                    endif
+
+                    call solve(G0(ispin,ia,:,:), Sigma(ispin,ia,:,:))
+                enddo
+            enddo
+
             call update_local_green_ftn
             call update_weiss_ftn
             call check_dmft_converged

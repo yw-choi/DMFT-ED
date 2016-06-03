@@ -1,6 +1,8 @@
 module ed_solver
     use mpi
     use dmft_params
+    use matsubara_grid
+    use ed_projection, only: project_to_impurity_model
 
     implicit none
 
@@ -15,12 +17,26 @@ module ed_solver
         sectors(:,:)  ! sectors(nsector,2) number of up/down electrons in each sectors
 
     double precision, allocatable :: &
-        ek(:),    &   ! ek(nsite)              impurity/bath onsite energies
-        vk(:,:)       ! ek(norb,norb+1:nsite)  impurity-bath hybridization
+        ek(:),    &   ! ek(nsite)         impurity/bath onsite energies
+        vk(:,:)       ! vk(norb,nbath)  impurity-bath hybridization
 
 contains
 
-    subroutine ed_solve
+    subroutine ed_solve(G0,Sigma)
+        double complex, intent(in) :: G0(norb,nwloc)
+        double complex, intent(out) :: Sigma(norb,nwloc)
+        double complex :: G0_cl(norb,nwloc) ! cluster-projected Weiss field
+
+        integer :: i,j
+
+        ! if (master) then
+        !     print *, "Before projection"
+
+        !     print *,ek
+        !     print *,vk
+        ! endif
+        call project_to_impurity_model(G0,ek,vk,norb,nbath,mu,nw)
+
     end subroutine ed_solve
 
     subroutine ed_read_options
@@ -50,9 +66,17 @@ contains
             enddo
         endif
 
-        allocate(ek(1:nsite),vk(1:norb,norb+1:nsite))
+        allocate(ek(nsite),vk(norb,nbath))
         ek(:) = 0.0d0
         vk(:,:) = 0.0d0
+        if (fdf_block('DMFT.ED.InitialImpurityLevels', bfdf)) then
+            i = 1
+            do while( (i .le. norb) .and. (fdf_bline(bfdf, pline)))
+                ek(i) = fdf_breals(pline,1)
+                i = i + 1
+            enddo
+        endif
+
         if (fdf_block('DMFT.ED.InitialBathLevels', bfdf)) then
             i = 1
             do while( (i .le. nbath) .and. (fdf_bline(bfdf, pline)))
@@ -65,7 +89,7 @@ contains
             i = 1
             do while( i.le.nbath .and. (fdf_bline(bfdf, pline)))
                 do j=1,norb
-                    vk(j,norb+i) = fdf_breals(pline,j)
+                    vk(j,i) = fdf_breals(pline,j)
                 enddo
                 i = i + 1
             enddo

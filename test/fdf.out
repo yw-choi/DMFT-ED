@@ -14,5 +14,24 @@ DMFT.SpectralBroadening         0.1000000000E-01
 DMFT.Solver     ED                                                                              
 DMFT.ED.Nbath              4
 DMFT.ED.Nsector              1
-DMFT.ED.ContinuedFractionStep             50
-DMFT.ED.Nev             30
+%block DMFT.ED.Sectors
+ 3 3
+%endblock DMFT.ED.Sectors
+%block DMFT.ED.InitialImpurityLevels
+ 0.0
+ 0.0
+%endblock DMFT.ED.InitialImpurityLevels
+%block DMFT.ED.InitialBathLevels
+ 0.1
+ 0.2
+ -0.1
+ -0.2
+%endblock DMFT.ED.InitialBathLevels
+%block DMFT.ED.InitialHybridization
+ 0.2 0.0
+ 0.0 0.2
+ 0.4 0.0
+ 0.0 0.4
+%endblock DMFT.ED.InitialHybridization
+DMFT.ED.ContinuedFractionStep             20
+DMFT.ED.Nev             10
