@@ -1,36 +1,31 @@
 module ed_projection
 
     use matsubara_grid, only: omega, nwloc
+    use ed_params, only: nbath
+    use dmft_params, only: norb, mu, nw
     use mpi
 
     public :: project_to_impurity_model
 
-    integer :: nx,nw,nbath,norb
-    double precision :: mu
+    integer :: nx
     double complex, allocatable :: G0(:,:)
 
     private
 contains
 
     ! obtain ek,vk by minimizing the difference between the cluster Weiss field and G0
-    subroutine project_to_impurity_model(G0in,ek,vk,norbin,nbathin,muin,nwin)
+    subroutine project_to_impurity_model(G0in,ek,vk)
         implicit none
-        integer, intent(in) :: norbin, nbathin, nwin
-        double precision, intent(in) :: muin
-        double complex, intent(in) :: G0in(norbin,nwloc)
-        double precision, intent(inout) :: ek(norbin+nbathin), vk(norbin,nbathin)
+        double complex, intent(in) :: G0in(norb,nwloc)
+        double precision, intent(inout) :: ek(norb+nbath), vk(norb,nbath)
 
         ! local variables
         integer :: iter, i,j
-        double precision :: x(norbin+nbathin+norbin*nbathin), diff, tol
+        double precision :: x(norb+nbath+norb*nbath), diff, tol
 
-        allocate(G0(norbin,nwloc))
+        allocate(G0(norb,nwloc))
 
         G0 = G0in
-        mu = muin
-        nw = nwin
-        norb = norbin
-        nbath = nbathin
 
         nx = norb+nbath+norb*nbath
         tol = 1.0D-7 ! minimization tolerance 

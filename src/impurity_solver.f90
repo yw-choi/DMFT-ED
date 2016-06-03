@@ -4,7 +4,6 @@ module impurity_solver
 ! This module separates the specific implementation of the impurity solver with
 ! DMFT module. 
 !==============================================================================
-    use ed_solver
     use fdf
     use utils
     use dmft_params
@@ -16,6 +15,7 @@ module impurity_solver
 contains
 
     subroutine solver_init
+        use ed_params
 
         solver = fdf_get("DMFT.Solver", "ED")
 
@@ -28,6 +28,7 @@ contains
     end subroutine solver_init
 
     subroutine solve(G0,Sigma)
+        use ed_solver
         double complex :: G0(norb,nwloc), Sigma(norb,nwloc)
 
         select case(solver)
