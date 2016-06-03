@@ -4,6 +4,7 @@ module dmft
     use dmft_params
     use dmft_lattice
     use utils
+    use mpi
     implicit none
 
     integer ::  &
@@ -76,7 +77,7 @@ contains
             do ispin=1,nspin
                 do ia=1,na
                     if (master) then
-                        write(*,"(a,I1,a,I2,a)") "Solving impurity problem for (ispin,ia)=(",ispin,",",ia,")..."
+                        write(*,"(1x,a,I1,a,I2,a)") "Solving impurity problem for (ispin,ia)=(",ispin,",",ia,")..."
                     endif
 
                     call solve(G0(ispin,ia,:,:), Sigma(ispin,ia,:,:))
@@ -160,7 +161,7 @@ contains
         call mpi_allreduce(diff,diffsum,1,mpi_integer,mpi_sum,comm,mpierr)
 
         if (master) then
-            write(*,"(a,I4,a,E12.5)") "scf ",iloop," : diff = ",diffsum
+            write(*,"(1x,a,I4,a,E12.5)") "scf ",iloop," : diff = ",diffsum
         endif
 
         if (diffsum < scf_tol) then

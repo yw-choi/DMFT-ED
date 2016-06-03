@@ -29,12 +29,6 @@ contains
 
         integer :: i,j
 
-        ! if (master) then
-        !     print *, "Before projection"
-
-        !     print *,ek
-        !     print *,vk
-        ! endif
         call project_to_impurity_model(G0,ek,vk,norb,nbath,mu,nw)
 
     end subroutine ed_solve

@@ -21,7 +21,7 @@ contains
         double precision, intent(inout) :: ek(norbin+nbathin), vk(norbin,nbathin)
 
         ! local variables
-        integer :: iter, i
+        integer :: iter, i,j
         double precision :: x(norbin+nbathin+norbin*nbathin), diff, tol
 
         allocate(G0(norbin,nwloc))
@@ -37,15 +37,33 @@ contains
 
         call ev_to_x(ek,vk,x)
         call FRPRMN(x,nx,tol,iter,diff)
+        call x_to_ev(x,ek,vk)
         if (master) then
+            write(*,*)
             write(*,*) "Projection to the impurity model converged."
             write(*,*) "iter = ", iter
             write(*,*) "diff = ", diff
-            do i=1,nx
-                write(*,"(A,I2,A,F12.6)") "x(",i,") = ",x(i)
+            write(*,*)
+            write(*,*) "Impurity/Bath Levels"
+            do i=1,norb+nbath
+                write(*,"(1x,A,I2,A,F12.6)") "ek(",i,") = ",ek(i)
             enddo
+            write(*,*)
+            write(*,*) "Impurity/Bath Hybridization"
+            write(*,"(7x)", advance="no")
+            do i=1,norb
+                write(*,"(4x,A3,I1,4x)",advance="no") "orb",i
+            enddo
+            write(*,*)
+            do i=1,nbath
+                write(*,"(1x,a4,I2)",advance="no") "bath",i
+                do j=1,norb
+                    write(*,"(F12.6)",advance="no") vk(j,i)
+                enddo
+                write(*,*)
+            enddo
+            write(*,*)
         endif
-        call x_to_ev(x,ek,vk)
 
         deallocate(G0)
     end subroutine project_to_impurity_model
@@ -91,14 +109,6 @@ contains
         enddo
 
     end subroutine x_to_ev
-
-    ! cluster Weiss field evaluation
-    double complex function g0cl(iorb,iw,x)
-        integer :: iorb, iw
-        double precision :: x(nx)
-
-
-    end function g0cl
 
     ! cluster hybridization function evaluation 
     double complex function delta_cl(iorb,iw,x)

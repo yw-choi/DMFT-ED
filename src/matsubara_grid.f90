@@ -4,17 +4,19 @@ module matsubara_grid
     use constants
     use dmft_params
 
-    integer :: &
+    public :: setup_matsubara_grid
+
+    integer, public :: &
         nwloc           ! number of matsubara frequencies local to the node
     
-    integer, allocatable :: &
+    integer, allocatable, public :: &
         nw_procs(:),  & ! nw_procs(nprocs) number of matsubara frequencies for each processor
         nw_offsets(:)   ! nw_offsets(nprocs) frequency index offsets 
 
-    double precision, allocatable :: &
+    double precision, allocatable, public :: &
         omega(:)        ! omega(nwloc) matsubara frequencies local to the node
 
-    public
+    private
 contains
 
     subroutine setup_matsubara_grid

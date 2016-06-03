@@ -22,8 +22,8 @@ FFLAGS+=-I./fdf
 ### Dependencies ###
 ####################
 $(OBJS): $(FDF)
-$(PROGRAM).o: io_units.o dmft.o mpi.o
-dmft.o: dmft_params.o  matsubara_grid.o impurity_solver.o dmft_lattice.o
+$(PROGRAM).o: mpi.o io_units.o dmft.o
+dmft.o: dmft_params.o matsubara_grid.o impurity_solver.o dmft_lattice.o
 impurity_solver.o: ed_solver.o
 matsubara_grid.o: constants.o
 dmft_lattice.o: numeric_utils.o
