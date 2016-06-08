@@ -7,7 +7,8 @@ PROGRAM = main
 OBJS = $(PROGRAM).o constants.o dmft.o \
 	   ed_solver.o matsubara_grid.o mpi.o \
 	   impurity_solver.o dmft_params.o io_units.o numeric_utils.o \
-	   dmft_lattice.o ed_projection.o ed_params.o
+	   dmft_lattice.o ed_projection.o ed_params.o ed_basis.o ed_full_diag.o \
+	   ed_hamiltonian.o
 
 default: $(PROGRAM)
 ##################
@@ -24,10 +25,13 @@ FFLAGS+=-I./fdf
 $(OBJS): $(FDF)
 $(PROGRAM).o: mpi.o io_units.o dmft.o
 dmft.o: dmft_params.o matsubara_grid.o impurity_solver.o dmft_lattice.o
-impurity_solver.o: ed_solver.o
+impurity_solver.o: ed_solver.o 
 matsubara_grid.o: constants.o
 dmft_lattice.o: numeric_utils.o
-ed_solver.o: ed_projection.o ed_params.o
+ed_solver.o: ed_params.o ed_projection.o ed_full_diag.o ed_hamiltonian.o
+ed_full_diag.o: ed_hamiltonian.o
+ed_hamiltonian.o: ed_basis.o
+ed_params.o: numeric_utils.o
 
 $(FDF): 
 	cd fdf ; $(MAKE);

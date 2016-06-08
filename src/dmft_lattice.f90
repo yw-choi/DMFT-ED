@@ -7,18 +7,19 @@ module dmft_lattice
     implicit none
 
     double complex, allocatable :: &
-        Hk(:,:,:,:)       ! Hk(nspin,na*norb,nk) Lattice Hamiltonian
+        Hk(:,:,:,:,:,:)  ! Hk(nk,norb,norb,nspin,na,na)
+                         ! lattice hamiltonian
 
 contains
 
     ! @TODO only 2D square lattice hamiltonian is implemented.
     ! This routine needs to be generalized to deal with general lattices
     subroutine setup_lattice_hamiltonian
-        integer :: i,j,ik,nkx,iorb,ispin
+        integer :: i,j,ik,nkx,iorb,ispin,ia
 
-        double precision :: dk, kx, ky
+        double precision :: dk, kx, ky, ckx, cky
 
-        allocate(Hk(nspin,na*norb,na*norb,nk))
+        allocate(Hk(nk,norb,norb,nspin,na,na))
 
         Hk = cmplx(0.0d0, 0.0d0)
 
@@ -31,50 +32,65 @@ contains
                 ik = ik + 1
                 kx = dk*float(i-1)
                 ky = dk*float(j-1)
-                do ispin=1,nspin
-                    do iorb = 1,na*norb
-                        Hk(ispin,iorb,iorb,ik) = -0.5D0*(cos(kx)+cos(ky))
+                ckx = cos(kx)
+                cky = cos(ky)
+                do ia=1,na
+                    do iorb=1,norb
+                        do ispin=1,nspin
+                            Hk(ik,iorb,iorb,ispin,ia,ia) = -0.5D0*(ckx+cky)
+                        enddo
+                    enddo
+                enddo 
+            enddo
+        enddo
+
+    end subroutine setup_lattice_hamiltonian
+
+    ! Calculates the lattice Green's function at (iw,ik). 
+    ! Only site/orbital/spin diagonal elements are returned.
+    ! @TODO needs to be generalized?
+    subroutine lattice_green_function(iw, ik, Sigma, Gkout)
+        use utils
+        integer, intent(in) :: ik, iw
+        double complex, intent(in) :: Sigma(nwloc,norb,nspin,na)
+        double complex, intent(out) :: Gkout(norb,nspin,na)
+
+        double complex :: invGk(na*norb*nspin,na*norb*nspin),&
+            Gk(na*norb*nspin,na*norb*nspin)
+        integer :: i,j, ia,iorb, ja,jorb, ispin
+
+
+        ! invGk = iw + mu - Hk - Sigma
+        invGk = cmplx(0.0d0,0.0d0)
+
+        ! @TODO indexing is somewhat arbitrary.
+        do ia=1,na
+            do ispin=1,nspin
+                do iorb=1,norb
+                    i = (ia-1)*norb*nspin+(ispin-1)*norb+iorb
+                    invGk(i,i) = invGk(i,i) + &
+                        cmplx(0.0d0,omega(iw)) + mu - Sigma(iw,iorb,ispin,ia)
+
+                    do ja=1,na
+                        do jorb=1,norb
+                            j = (ja-1)*norb*nspin+(ispin-1)*norb+jorb
+                            invGk(j,i) = invGk(j,i) - Hk(ik,iorb,jorb,ispin,ia,ja)
+                        enddo
                     enddo
                 enddo
             enddo
         enddo
-    end subroutine setup_lattice_hamiltonian
 
-    ! Calculates the lattice Green's function at (ispin,iw,ik). 
-    ! Only orbital diagonal elements are returned.
-    subroutine lattice_green_function(ispin, iw, ik, Sigma, Gkout)
-        use utils
-        integer, intent(in) :: ispin, ik, iw
-        double complex, intent(in) :: Sigma(nspin,na,norb,nwloc)
-        double complex, intent(out) :: Gkout(na,norb)
-
-        double complex :: Gk(na*norb,na*norb),invGk(na*norb,na*norb)
-        integer :: i,j, ia,iorb, ja,jorb
-
-        invGk = cmplx(0.0d0, 0.0d0)
-
-        ! First, calculates the inverse of Gk(ispin,iw,ik)
-        do i=1,na*norb
-            do j=1,na*norb
-                if (i.eq.j) then
-                    ia = (i-1)/norb+1
-                    iorb = mod(i-1,norb)+1
-                    ! self-energy is assumed to be diagonal
-                    invGk(i,i) = cmplx(0.0d0,omega(iw)) + mu - Sigma(ispin,ia,iorb,iw)
-                endif
-
-                invGk(i,j) = invGk(i,j) - Hk(ispin,i,j,ik)
-            enddo
-        enddo
-
-        ! Invert the matrix to get Gk(ispin,iw,ik)
-        call cinv(invGk,na*norb,na*norb,Gk)
+        ! matrix inversion
+        call cinv(invGk,na*norb*nspin,na*norb*nspin,Gk)
 
         ! Extract diagonal elements to output
         do ia=1,na
-            do iorb=1,norb
-                i = (ia-1)*norb+iorb
-                Gkout(ia,iorb) = Gk(i,i)
+            do ispin=1,nspin
+                do iorb=1,norb
+                    i = (ia-1)*norb*nspin+(ispin-1)*norb+iorb
+                    Gkout(iorb,ispin,ia) = Gk(i,i)
+                enddo
             enddo
         enddo 
     end subroutine lattice_green_function

@@ -28,23 +28,23 @@ DMFT.ED.Nev                    10
 
 # impurity levels
 %block DMFT.ED.InitialImpurityLevels
-0.0
-0.0
+0.615170
+0.117434
 %endblock DMFT.ED.InitialImpurityLevels
 
 # bath levels
 %block DMFT.ED.InitialBathLevels
-0.1
-0.2
--0.1
--0.2
+-0.372660
+ 0.213113
+ 1.558204
+-0.250166
 %endblock DMFT.ED.InitialBathLevels
 
 # impurity-bath coupling
 # iorb1 iorb2 ...
 %block DMFT.ED.InitialHybridization
-0.2 0.0
-0.0 0.2
-0.4 0.0
-0.0 0.4
+0.548119    0.000000
+0.000000    0.173475
+1.220920    0.000000
+0.000000    0.348230
 %endblock DMFT.ED.InitialHybridization

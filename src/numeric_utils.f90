@@ -2,6 +2,13 @@ module numeric_utils
 
 contains
 
+    double precision function boltzmann_factor(beta,de) result(prob)
+        double precision, intent(in) :: beta, de
+
+        prob = exp(-beta*de)
+
+    end function boltzmann_factor
+
     ! Calculates the inverse matrix of a complex NxN matrix. 
     ! subroutine complex_inverse(N,A,INFO)
     !     double complex :: A(N,N), WORK(N)

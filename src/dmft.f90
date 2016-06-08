@@ -14,10 +14,10 @@ module dmft
         converged  ! is DMFT loop converged?
 
     double complex, allocatable :: &
-        G_prev(:,:,:,:),   & ! G_prev(nspin,na,norb,nwloc) local Green's function of the previous step
-        G(:,:,:,:),       & ! G(nspin,na,norb,nwloc)      local Green's function of the current step
-        G0(:,:,:,:),      & ! G0(nspin,na,norb,nwloc)     Weiss field of the current step
-        Sigma(:,:,:,:)      ! Sigma(nspin,na,norb,nwloc)  Self-energy of the current step
+        G_prev(:,:,:,:),   & ! G_prev(nwloc,norb,nspin,na) local Green's function of the previous step
+        G(:,:,:,:),        & ! G(nwloc,norb,nspin,na)      local Green's function of the current step
+        G0(:,:,:,:),       & ! G0(nwloc,norb,nspin,na)     Weiss field of the current step
+        Sigma(:,:,:,:)       ! Sigma(nwloc,norb,nspin,na)  Self-energy of the current step
 
 contains
 
@@ -36,15 +36,16 @@ contains
         endif
         call setup_matsubara_grid
 
-        allocate(G_prev(nspin,na,norb,nwloc)) 
-        allocate(G(nspin,na,norb,nwloc))
-        allocate(G0(nspin,na,norb,nwloc))
-        allocate(Sigma(nspin,na,norb,nwloc))
+
+        allocate(G_prev(nwloc,norb,nspin,na)) 
+        allocate(G(nwloc,norb,nspin,na))
+        allocate(G0(nwloc,norb,nspin,na))
+        allocate(Sigma(nwloc,norb,nspin,na))
 
         G_prev = cmplx(0.0d0,0.0d0)
-        G = cmplx(0.0d0,0.0d0)
-        G0 = cmplx(0.0d0,0.0d0)
-        Sigma = cmplx(0.0d0,0.0d0)
+        G      = cmplx(0.0d0,0.0d0)
+        G0     = cmplx(0.0d0,0.0d0)
+        Sigma  = cmplx(0.0d0,0.0d0)
 
         if (master) then
             write(*,*) "Setting up lattice Hamiltonian..."
@@ -74,14 +75,12 @@ contains
                 write(*,*) "DMFT Loop ", iloop
             endif
 
-            do ispin=1,nspin
-                do ia=1,na
-                    if (master) then
-                        write(*,"(1x,a,I1,a,I2,a)") "Solving impurity problem for (ispin,ia)=(",ispin,",",ia,")..."
-                    endif
+            do ia=1,na
+                if (master) then
+                    write(*,"(1x,a,I1,a,I2,a)") "Solving impurity problem for ia=",ia,")..."
+                endif
 
-                    call solve(G0(ispin,ia,:,:), Sigma(ispin,ia,:,:))
-                enddo
+                call solve(G0(:,:,:,ia), Sigma(:,:,:,ia))
             enddo
 
             call update_local_green_ftn
@@ -98,6 +97,7 @@ contains
     end subroutine dmft_loop
 
     subroutine dmft_post_processing
+        ! @TODO calculates dynamical properties..
 
     end subroutine dmft_post_processing
 
@@ -111,7 +111,7 @@ contains
     subroutine update_local_green_ftn
         integer :: ik, iw, ispin, ia, iorb
         ! Lattice Green's function at (ispin,iw,ik)
-        double complex :: Gk(na,norb)
+        double complex :: Gk(norb,nspin,na)
 
         if (master) then
             write(*,*) "Updating the local Green's function..."
@@ -121,18 +121,11 @@ contains
         G_prev = G
         G = cmplx(0.0d0,0.0d0)
 
-        do ispin=1,nspin
-            do iw=1,nwloc
-                do ik=1,nk
-                    call lattice_green_function(ispin, iw, ik, Sigma, Gk)
-
-                    ! Add Gk to G
-                    do ia=1,na
-                        do iorb=1,norb
-                            G(ispin,ia,iorb,iw) = G(ispin,ia,iorb,iw)+Gk(ia,iorb)
-                        enddo
-                    enddo
-                enddo
+        do iw=1,nwloc
+            do ik=1,nk
+                ! sum Gk to G. take only site/orbital/spin diagonal part
+                call lattice_green_function(iw,ik,Sigma,Gk)
+                G(iw,:,:,:) = G(iw,:,:,:) + Gk(:,:,:)
             enddo
         enddo
 
@@ -178,14 +171,14 @@ contains
         if (master) then
             write(fn,"(a5,I3.3,a4)") "dmft.",iloop,".dat"
             open(unit=IO_DEBUG_DUMP,file=fn,status="replace")
-            do ispin=1,nspin
-                do ia=1,na
+            do ia=1,na
+                do ispin=1,nspin
                     do iorb=1,norb
                         do iw=1,nwloc
                             write(IO_DEBUG_DUMP,"(7F16.8)") omega(iw), &
-                                real(G(ispin,ia,iorb,iw)), aimag(G(ispin,ia,iorb,iw)), &
-                                real(G0(ispin,ia,iorb,iw)), aimag(G0(ispin,ia,iorb,iw)), &
-                                real(Sigma(ispin,ia,iorb,iw)), aimag(Sigma(ispin,ia,iorb,iw))
+                                real(G(iw,iorb,ispin,ia)), aimag(G(iw,iorb,ispin,ia)), &
+                                real(G0(iw,iorb,ispin,ia)), aimag(G0(iw,iorb,ispin,ia)), &
+                                real(Sigma(iw,iorb,ispin,ia)), aimag(Sigma(iw,iorb,ispin,ia))
                         enddo
                         write(IO_DEBUG_DUMP,*)
                     enddo

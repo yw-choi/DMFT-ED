@@ -8,6 +8,8 @@ module impurity_solver
     use utils
     use dmft_params
     use matsubara_grid
+    use ed_solver
+
     implicit none
 
     character(len=100) :: solver
@@ -15,21 +17,20 @@ module impurity_solver
 contains
 
     subroutine solver_init
-        use ed_params
 
         solver = fdf_get("DMFT.Solver", "ED")
 
         select case(solver)
             case ("ED")
-                call ed_read_options
+                call ed_init
             case default
                 call die("impurity_solver", "Specfieid solver is not implemented.")
         end select
     end subroutine solver_init
 
     subroutine solve(G0,Sigma)
-        use ed_solver
-        double complex :: G0(norb,nwloc), Sigma(norb,nwloc)
+        double complex, intent(in) :: G0(nwloc,norb,nspin)
+        double complex, intent(out) :: Sigma(nwloc,norb,nspin)
 
         select case(solver)
             case ("ED")
