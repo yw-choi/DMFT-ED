@@ -23,7 +23,7 @@ contains
     subroutine ed_init
         call ed_read_params
 
-        allocate(ek(nsite,nspin),vk(norb,nbath,nspin))
+        allocate(ek(nsite,2),vk(norb,nbath,2))
         ! input levels, hybridization
         ek = ek_in
         vk = vk_in
@@ -42,7 +42,7 @@ contains
         ! return the eigpairs.
         select case(diag_method)
             case ("full")
-                ! call full_diagonalize(nev_calc,eigpairs)
+                call full_diagonalize(nev_calc,eigpairs)
             case default
                 call die("ed_solve", "Diagonalization method is not implemented.")
         end select

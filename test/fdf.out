@@ -3,6 +3,8 @@ DMFT.nspin              1
 DMFT.Norb              2
 DMFT.U          1.000000000    
 DMFT.J         0.3000000000    
+DMFT.Up         0.4000000000         # default value
+DMFT.Jp         0.3000000000         # default value
 DMFT.Mu          1.000000000    
 DMFT.beta          100.0000000    
 DMFT.MaxIterations            100
@@ -13,26 +15,22 @@ DMFT.Nk          10000
 DMFT.SpectralBroadening         0.1000000000E-01
 DMFT.Solver     ED                                                                              
 DMFT.ED.Diagonalization     full     # default value
-DMFT.ED.Nbath              4
+DMFT.ED.Nbath              2
 DMFT.ED.Nsector              1
 %block DMFT.ED.Sectors
- 3 3
+ 2 2
 %endblock DMFT.ED.Sectors
 %block DMFT.ED.InitialImpurityLevels
- 0.615170
- 0.117434
+  0.301513
+  0.185099
 %endblock DMFT.ED.InitialImpurityLevels
 %block DMFT.ED.InitialBathLevels
- -0.372660
-  0.213113
-  1.558204
- -0.250166
+  0.305037
+ -0.400000
 %endblock DMFT.ED.InitialBathLevels
 %block DMFT.ED.InitialHybridization
- 0.548119    0.000000
- 0.000000    0.173475
- 1.220920    0.000000
- 0.000000    0.348230
+ -0.304981    0.000000
+  0.000000   -0.315912
 %endblock DMFT.ED.InitialHybridization
 DMFT.ED.ContinuedFractionStep             20
 DMFT.ED.Nev             10

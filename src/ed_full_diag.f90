@@ -73,6 +73,7 @@ contains
             eigpairs(iev)%prob   = prob(iev)/Z
             allocate(eigpairs(iev)%vec(sectors(1,3)))
             eigpairs(iev)%vec(:) = H(:,iev)
+            write(*,*) ev(iev)
         enddo
 
         if (master) then

@@ -1,11 +1,13 @@
-module ed_operators
+module ed_operator
     use dmft_params, only: norb
     use ed_params, only: nbath, nsite, kind_basis
+    use mpi
     use ed_basis
 
     implicit none
 
 contains
+
     ! Apply creation/destruction operator to a state vector.
     ! pm = 1 : create
     ! pm = 2 : destroy
@@ -24,15 +26,15 @@ contains
 
         if (ispin.eq.1) then
             if (pm.eq.1) then
-                basis_out = generate_basis( basis%ne_up+1, basis%ne_down)
+                call generate_basis( basis%ne_up+1, basis%ne_down, basis_out)
             else
-                basis_out = generate_basis( basis%ne_up-1, basis%ne_down)
+                call generate_basis( basis%ne_up-1, basis%ne_down, basis_out)
             endif
         else
             if (pm.eq.1) then
-                basis_out = generate_basis( basis%ne_up, basis%ne_down+1)
+                call generate_basis( basis%ne_up, basis%ne_down+1, basis_out)
             else
-                basis_out = generate_basis( basis%ne_up, basis%ne_down-1)
+                call generate_basis( basis%ne_up, basis%ne_down-1, basis_out)
             endif
         endif
 
@@ -41,7 +43,7 @@ contains
         vec_out = 0.0D0
 
         call mpi_allgatherv(vec,basis%nloc,mpi_double_precision,vec_all,&
-            basis%nlocals,basis%offsets,mpi_double_precision,comm,ierr)
+            basis%nlocals,basis%offsets,mpi_double_precision,comm,mpierr)
 
         do i=1,basis_out%nloc
             basis_i = ed_basis_get(basis_out,i)
@@ -62,227 +64,24 @@ contains
         deallocate(vec_all)
     end subroutine apply_c
 
-    integer function get_bitidx(isite,ispin)
-        integer :: isite, ispin
-        get_bitidx = (ispin-1)*Nsite + isite-1
-    end function get_bitidx
-
-    ! number operator eigenvalue. c^+ (isite,ispin) c (isite,ispin)
-    integer function num_op(basis_in,isite,ispin)
+    integer function sgn(basis_in,i,j)
         integer(kind=kind_basis) :: basis_in
-        integer :: isite,ispin
-        integer :: bitidx
+        integer :: i,j
+        integer :: k, sgnsum
 
-        bitidx = get_bitidx(isite,ispin)
-        if (BTEST(basis_in,bitidx)) then
-            num_op = 1
-        else
-            num_op = 0
-        endif
-    end function
-
-    subroutine onsite(basis_in,isite,ispin,basis_out,coeff)
-        integer(kind=kind_basis), intent(in) :: basis_in
-        integer, intent(in) :: isite,ispin
-        integer(kind=kind_basis), intent(out) :: basis_out
-        double precision, intent(out) :: coeff
-
-        integer :: bitidx,sgn
-        bitidx = get_bitidx(isite,ispin)
-
-        call number_op(basis_in,isite,ispin,basis_out,sgn)
-        if (sgn.eq.0) then
-            coeff = 0.0D0
-            return
-        endif
-        
-        coeff = ek(isite)
-    end subroutine onsite
-
-    subroutine hybridization1(basis_in,iorb,ibath,ispin,basis_out,coeff)
-        integer(kind=kind_basis), intent(in) :: basis_in
-        integer, intent(in) :: iorb,ibath,ispin
-        integer(kind=kind_basis), intent(out) :: basis_out
-        double precision, intent(out) :: coeff
-
-        integer :: sgn
-        coeff = 1.0D0
-        call destruction_op(basis_in,Norb+ibath,ispin,basis_out,sgn)
-        if (sgn.eq.0) then
-            coeff = 0.0D0
-            return
-        endif
-        coeff = coeff*sgn
-        call creation_op(basis_out,iorb,ispin,basis_out,sgn)
-        if (sgn.eq.0) then
-            coeff = 0.0D0
-            return
-        endif
-        coeff = coeff*sgn
-        coeff = coeff*vk(iorb,norb+ibath)
-    end subroutine hybridization1
-
-    subroutine hybridization2(basis_in,iorb,ibath,ispin,basis_out,coeff)
-        integer(kind=kind_basis), intent(in) :: basis_in
-        integer, intent(in) :: iorb,ibath,ispin
-        integer(kind=kind_basis), intent(out) :: basis_out
-        double precision, intent(out) :: coeff
-
-        integer :: sgn
-        coeff = 1.0D0
-        call destruction_op(basis_in,iorb,ispin,basis_out,sgn)
-        if (sgn.eq.0) then
-            coeff = 0.0D0
-            return
-        endif
-        coeff = coeff*sgn
-        call creation_op(basis_out,Norb+ibath,ispin,basis_out,sgn)
-        if (sgn.eq.0) then
-            coeff = 0.0D0
-            return
-        endif
-        coeff = coeff*sgn
-        coeff = coeff*vk(iorb,norb+ibath)
-    end subroutine hybridization2
-
-    subroutine dens_dens(basis_in,iorb,jorb,ispin,jspin,basis_out,coeff)
-        integer(kind=kind_basis), intent(in) :: basis_in
-        integer, intent(in) :: iorb,jorb,ispin,jspin
-        integer(kind=kind_basis), intent(out) :: basis_out
-        double precision, intent(out) :: coeff
-
-        integer :: n1,n2
-
-        call number_op(basis_in,iorb,ispin,basis_out,n1)
-        call number_op(basis_in,jorb,jspin,basis_out,n2)
-
-        if (n1*n2.eq.0) then
-            coeff = 0
-            return
-        endif
-
-        if (iorb.eq.jorb) then
-            if (ispin.eq.jspin) then
-                coeff = 0.0D0
-                basis_out = 0
-                return
+        do k=i,j
+            if (BTEST(basis_in,k)) then
+                sgnsum = sgnsum + 1
             endif
+        enddo
 
-            ! intra orbital coupling
-            coeff = U
-        else if (ispin.eq.jspin) then
-            ! inter orbital coupling, same spin
-            coeff = U - 3*Jex ! Uprime - J
+        if (mod(sgnsum,2)) then
+            sgn = -1
         else
-            ! inter orbital coupling, different spin
-            coeff = U - 2*Jex ! Uprime 
+            sgn = +1
         endif
-
-    end subroutine dens_dens
-
-    subroutine spin_flip(basis_in,iorb,jorb,basis_out,coeff)
-        integer(kind=kind_basis), intent(in) :: basis_in
-        integer, intent(in) :: iorb,jorb
-        integer(kind=kind_basis), intent(out) :: basis_out
-        double precision, intent(out) :: coeff
-
-        integer :: sgn_tot,sgn
-
-        sgn_tot=1
-        coeff = 0.0D0
-
-        if (iorb.eq.jorb) then
-            basis_out = 0
-            return
-        endif
-
-        ! c_j,u
-        call destruction_op(basis_in,jorb,1,basis_out,sgn)
-        if (sgn.eq.0) then
-            return 
-        else
-            sgn_tot = sgn_tot*sgn
-        endif
-
-        ! c^+_j,d
-        call creation_op(basis_out,jorb,2,basis_out,sgn)
-        if (sgn.eq.0) then
-            return 
-        else
-            sgn_tot = sgn_tot*sgn
-        endif
-
-        ! c_i,d
-        call destruction_op(basis_out,iorb,2,basis_out,sgn)
-        if (sgn.eq.0) then
-            return 
-        else
-            sgn_tot = sgn_tot*sgn
-        endif
-
-        ! c^+_i,u
-        call creation_op(basis_out,iorb,1,basis_out,sgn)
-        if (sgn.eq.0) then
-            return 
-        else
-            sgn_tot = sgn_tot*sgn
-        endif
-
-        coeff = -Jex*sgn_tot ! Jprime
-
         return
-    end subroutine spin_flip
-
-    subroutine pair_exchange(basis_in,iorb,jorb,basis_out,)
-        integer(kind=kind_basis), intent(in) :: basis_in
-        integer, intent(in) :: iorb,jorb
-        integer(kind=kind_basis), intent(out) :: basis_out
-
-        integer :: sgn_tot,sgn
-
-        sgn_tot=1
-
-        if (iorb.eq.jorb) then
-            basis_out = 0
-            return
-        endif
-
-        ! c_j,d
-        call destruction_op(basis_in,jorb,2,basis_out,sgn)
-        if (sgn.eq.0) then
-            return 
-        else
-            sgn_tot = sgn_tot*sgn
-        endif
-
-        ! c_j,u
-        call destruction_op(basis_out,jorb,1,basis_out,sgn)
-        if (sgn.eq.0) then
-            return 
-        else
-            sgn_tot = sgn_tot*sgn
-        endif
-
-        ! c^+_i,d
-        call creation_op(basis_out,iorb,2,basis_out,sgn)
-        if (sgn.eq.0) then
-            return 
-        else
-            sgn_tot = sgn_tot*sgn
-        endif
-
-        ! c^+_i,u
-        call creation_op(basis_out,iorb,1,basis_out,sgn)
-        if (sgn.eq.0) then
-            return 
-        else
-            sgn_tot = sgn_tot*sgn
-        endif
-
-        coeff = -Jex*sgn_tot ! Jprime
-
-        return
-    end subroutine pair_exchange
+    end function
 
     subroutine destruction_op(basis_in,isite,ispin,basis_out,sgn)
         integer(kind=kind_basis), intent(in) :: basis_in
@@ -348,4 +147,4 @@ contains
             sgn = 0
         end if
     end subroutine creation_op
-end module ed_operators
+end module ed_operator

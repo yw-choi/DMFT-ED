@@ -1,16 +1,17 @@
 module ed_hamiltonian
 
-    use dmft_params, only: norb, U, Jex, mu 
-    use ed_params, only: nbath, kind_basis
-    use ed_basis, only: basis_t, get_bitidx, ed_basis_get
-
+    use dmft_params, only: norb, U, Jex, mu, Up, Jp, nspin
+    use utils, only: die
+    use ed_params, only: nbath, kind_basis, nsite
+    use ed_basis, only: basis_t, ed_basis_get,  ed_basis_idx
+    use ed_operator, only: sgn
     implicit none
 
     public :: generate_hamiltonian
 
     double precision, allocatable, public :: &
-        ek(:,:),    &   ! ek(nsite,nspin)         impurity/bath onsite energies
-        vk(:,:,:)       ! vk(norb,nbath,nspin)    impurity-bath hybridization
+        ek(:,:),    &   ! ek(nsite,2)         impurity/bath onsite energies
+        vk(:,:,:)       ! vk(norb,nbath,2)    impurity-bath hybridization
 
     private
 contains
@@ -22,24 +23,186 @@ contains
 
         ! local variables
         integer(kind=kind_basis) :: basis_i, basis_j
-        integer :: i,j,iorb,jorb,ibath,jbath,ispin, bidx
+        integer :: i,j,iorb,jorb,ibath,ispin, isite, jsite
+        integer :: ni(2),nj(2),nb,sgntot
+
+        if (.not.allocated(ek) .or. .not. allocated(vk)) then
+            write(*,*) "Cluster Hamiltonian parameters are net initialized."
+            call die("generate_hamiltonian", "ek, vk not allocated.")
+        endif
 
         H = 0.0d0
 
         ! calculates <i|H|j>. 
         ! 1. find nonvanishing coefficients of H|j> = SUM_k |k> <k|H|j>
         ! 2. set H(i,j) = <i|H|j>
-        do j=1,basis%ntot
+        jloop: do j=1,basis%ntot
             basis_j = ed_basis_get(basis,j)
-            do ispin=1,2
-                do iorb=1,norb
-                    bidx = get_bitidx(iorb,ispin)
-                    if (BTEST(basis_j,bidx)) then
+            iorbloop: do iorb=1,norb
+                if (BTEST(basis_j,iorb)) then
+                    ni(1) = 1
+                else
+                    ni(1) = 0
+                endif
+
+                if (BTEST(basis_j,nsite+iorb)) then
+                    ni(2) = 1 
+                else
+                    ni(2) = 0
+                endif
+                
+                ! ==================================
+                ! 1. onsite energies up/dn, 
+                ! 2. intra orbital density-density
+                ! ==================================
+                H(j,j) = H(j,j) + (ek(iorb,1)-mu)*ni(1) &
+                            + (ek(iorb,nspin)-mu)*ni(2) &
+                            + U*ni(1)*ni(2)
+                ! ==================================
+
+                ! ==================================
+                ! 3. inter orbital density-density
+                ! ==================================
+                do jorb=iorb+1,norb
+                    ! n_j,up
+                    if (BTEST(basis_j,jorb)) then
+                        nj(1) = 1
+                    else
+                        nj(1) = 0
+                    endif
+                    ! n_j,dn
+                    if (BTEST(basis_j,nsite+jorb)) then
+                        nj(2) = 1
+                    else
+                        nj(2) = 0
+                    endif
+
+                    ! interorbital density-density
+                    H(j,j) = H(j,j) + (Up-J)*(ni(1)*nj(1)+ni(2)*nj(2)) &
+                                    + Up*(ni(1)*nj(2)+ni(2)*nj(1))
+                enddo
+                ! ==================================
+
+                ! ==================================
+                ! 4. hybridization
+                ! ==================================
+                do ispin=1,2
+                    do ibath=1,nbath
+                        isite = (ispin-1)*nsite+iorb
+                        jsite = (ispin-1)*nsite+norb+ibath
+
+                        if (ni(ispin).eq.0 .and. BTEST(basis_j,jsite)) then
+                            ! c^+_{iorb,ispin} b_{ibath,ispin}
+                            sgntot = sgn(basis_j,1,jsite-1)
+                            basis_i = IBCLR(basis_j,jsite)
+
+                            sgntot = sgntot*sgn(basis_i,1,isite-1)
+                            basis_i = IBSET(basis_i,isite)
+
+                            i = ed_basis_idx(basis, basis_i)
+
+                            H(i,j) = H(i,j) + sgntot*vk(iorb,ibath,ispin) 
+
+                        else if (ni(ispin).ne.0 .and. &
+                                 .not.BTEST(basis_j,jsite)) then
+                            ! b^+_{ibath,ispin} c_{iorb,ispin}
+                            sgntot = sgn(basis_j,1,isite-1)
+                            basis_i = IBCLR(basis_j,isite)
+
+                            sgntot = sgntot*sgn(basis_i,1,jsite-1)
+                            basis_i = IBSET(basis_i,jsite)
+
+                            i = ed_basis_idx(basis, basis_i)
+                            
+                            print *,j
+                            print *,i
+                            write(*,"(B)") basis_j
+                            write(*,"(B)") basis_i
+                            write(*,*) iorb,ibath
+
+                            H(i,j) = H(i,j) + sgntot*vk(iorb,ibath,ispin) 
+
+                        endif
+                    enddo
+                enddo
+                ! ==================================
+
+                ! ==================================
+                ! 5. spin-flip & pair-hopping
+                ! ==================================
+                do jorb=1,norb
+                    ! n_j,up
+                    if (BTEST(basis_j,jorb)) then
+                        nj(1) = 1
+                    else
+                        nj(1) = 0
+                    endif
+                    ! n_j,dn
+                    if (BTEST(basis_j,nsite+jorb)) then
+                        nj(2) = 1
+                    else
+                        nj(2) = 0
+                    endif
+
+                    ! spin-flip
+                    ! -Jp c^+_{j,up} c_{j,dn} c^+_{i,dn} c_{i,up}
+                    if (ni(1).ne.0.and.ni(2).eq.0.and.&
+                        nj(1).eq.0.and.nj(2).ne.0) then
+
+                        sgntot = sgn(basis_j,1,iorb-1)
+                        basis_i = IBCLR(basis_j,iorb)
+
+                        sgntot = sgntot*sgn(basis_i,1,nsite+iorb-1)
+                        basis_i = IBSET(basis_i,nsite+iorb)
+
+                        sgntot = sgntot*sgn(basis_i,1,nsite+jorb-1)
+                        basis_i = IBCLR(basis_i,nsite+jorb)
+
+                        sgntot = sgntot*sgn(basis_i,1,jorb-1)
+                        basis_i = IBCLR(basis_i,jorb)
+
+                        i = ed_basis_idx(basis, basis_i)
+
+                        H(i,j) = H(i,j) - sgntot*Jp
 
                     endif
-                enddo
+
+                    ! pair-hopping
+                    ! -Jp c^+_{j,up} c^+_{j,dn} c_{i,up} c_{i,dn}
+                    if (ni(1).eq.0.and.ni(2).eq.0.and.&
+                        nj(1).ne.0.and.nj(2).ne.0) then
+
+                        sgntot = sgn(basis_j,1,nsite+iorb-1)
+                        basis_i = IBCLR(basis_j,nsite+iorb)
+
+                        sgntot = sgntot*sgn(basis_i,1,iorb-1)
+                        basis_i = IBCLR(basis_i,iorb)
+
+                        sgntot = sgntot*sgn(basis_i,1,nsite+jorb-1)
+                        basis_i = IBSET(basis_i,nsite+jorb)
+
+                        sgntot = sgntot*sgn(basis_i,1,jorb-1)
+                        basis_i = IBSET(basis_i,jorb)
+
+                        i = ed_basis_idx(basis, basis_i)
+
+                        H(i,j) = H(i,j) - sgntot*Jp
+                    endif
+                enddo 
+            enddo iorbloop
+
+            ! ==================================
+            ! 6. bath onsite
+            ! ==================================
+            do ibath=1,nbath
+                if (BTEST(basis_j,norb+ibath)) then
+                    H(j,j)=H(j,j)+ek(norb+ibath,1)
+                endif
+                if (BTEST(basis_j,nsite+norb+ibath)) then
+                    H(j,j)=H(j,j)+ek(norb+ibath,nspin)
+                endif
             enddo
-        enddo
+        enddo jloop
 
     end subroutine generate_hamiltonian
     

@@ -21,7 +21,7 @@ contains
 
         ! local variables
         integer :: itr, i,j, ispin
-        double precision, parameter :: tol = 1.0D-7 ! minimization tolerance 
+        double precision, parameter :: tol = 1.0D-10 ! minimization tolerance 
         double precision :: x(1+2*nbath), diff
 
         ! For each (orb,spin),
@@ -70,11 +70,17 @@ contains
             enddo
         enddo
 
+        ! for paramagnetic runs, set ek and vk spin independent
+        if (nspin.eq.1) then
+            ek(:,2) = ek(:,1)
+            vk(:,:,2) = vk(:,:,1)
+        endif
 
         if (master) then
             write(*,*) 
             write(*,*) "Projected impurity/bath Levels"
             do ispin=1,nspin
+                write(*,*) 
                 write(*,*) "Spin ",ispin
                 do i=1,norb+nbath
                     write(*,"(1x,A,I2,A,F12.6)") "ek(",i,") = ",ek(i,ispin)
@@ -437,3 +443,241 @@ contains
       END FUNCTION F1DIM
 end module ed_projection
 
+! archived code: minimizing the differences b/w G0 and G0cl, orbital summed
+! module ed_projection
+
+!     use matsubara_grid, only: omega, nwloc
+!     use ed_params, only: nbath
+!     use dmft_params, only: norb, mu, nw, nspin
+!     use mpi
+!     use utils
+
+!     public :: project_to_impurity_model
+
+!     integer :: nx
+!     double complex, allocatable :: G0(:,:)
+
+!     private
+! contains
+
+!     ! obtain ek,vk by minimizing the difference between the cluster Weiss field and G0
+!     subroutine project_to_impurity_model(G0in,ek,vk)
+!         implicit none
+!         double complex, intent(in) :: G0in(nwloc,norb,nspin)
+!         double precision, intent(inout) :: ek(norb+nbath,nspin), vk(norb,nbath,nspin)
+
+!         ! local variables
+!         integer :: iter, i,j
+!         double precision :: x(norb+nbath+norb*nbath), diff, tol
+
+!         if (nspin.ne.1) then
+!             call die("project_to_impurity_model","nspin>1 not implemented.")
+!         endif
+
+!         allocate(G0(nwloc,norb))
+
+!         G0 = G0in(:,:,1)
+
+!         nx = norb+nbath+norb*nbath
+!         tol = 1.0D-10 ! minimization tolerance
+
+!         call ev_to_x(ek(:,1),vk(:,:,1),x)
+!         call FRPRMN(x,nx,tol,iter,diff)
+!         call x_to_ev(x,ek(:,1),vk(:,:,1))
+!         if (master) then
+!             write(*,*)
+!             write(*,*) "Projection to the impurity model converged."
+!             write(*,*) "iter = ", iter
+!             write(*,*) "diff = ", diff
+!             write(*,*)
+!             write(*,*) "Impurity/Bath Levels"
+!             do i=1,norb+nbath
+!                 write(*,"(1x,A,I2,A,F12.6)") "ek(",i,") = ",ek(i,1)
+!             enddo
+!             write(*,*)
+!             write(*,*) "Impurity/Bath Hybridization"
+!             write(*,"(7x)", advance="no")
+!             do i=1,norb
+!                 write(*,"(4x,A3,I1,4x)",advance="no") "orb",i
+!             enddo
+!             write(*,*)
+!             do i=1,nbath
+!                 write(*,"(1x,a4,I2)",advance="no") "bath",i
+!                 do j=1,norb
+!                     write(*,"(F12.6)",advance="no") vk(j,i,1)
+!                 enddo
+!                 write(*,*)
+!             enddo
+!             write(*,*)
+!         endif
+
+!         deallocate(G0)
+!     end subroutine project_to_impurity_model
+
+!     ! merge (ek,vk) to a single vector x
+!     ! dim(x) = nxsize = norb + nbath + norb*nbath
+!     ! ek(1:ns), vk(orb1,nbath), vk(orb2,nbath), ...
+!     subroutine ev_to_x(ek,vk,x)
+!         implicit none
+!         integer:: iorb,ibath,i
+!         double precision x(norb+nbath+norb*nbath)
+!         double precision ek(norb+nbath),vk(norb,nbath)
+
+!         do i = 1, norb+nbath
+!             x(i) = ek(i)
+!         enddo
+
+!         i = norb+nbath
+!         do iorb = 1,Norb
+!             do ibath = 1,nbath
+!                 i = i + 1
+!                 x(i) = vk(iorb,ibath)
+!             enddo
+!         enddo
+!     end subroutine ev_to_x
+
+!     subroutine x_to_ev(x,ek,vk)
+!         implicit none
+!         integer:: iorb,ibath,i
+!         double precision x(norb+nbath+norb*nbath)
+!         double precision ek(norb+nbath),vk(norb,nbath)
+
+!         do i=1,norb+nbath
+!             ek(i) = x(i)
+!         enddo
+
+!         i = norb+nbath
+!         do iorb = 1,Norb
+!             do ibath = 1,nbath
+!                 i = i + 1
+!                 vk(iorb,ibath) = x(i)
+!             enddo
+!         enddo
+
+!     end subroutine x_to_ev
+
+!     ! cluster hybridization function evaluation
+!     double complex function delta_cl(iorb,iw,x)
+!         integer :: iorb, iw
+!         double precision :: x(nx)
+
+!         integer :: ibath, xidx
+
+!         delta_cl = cmplx(0.0d0,0.0d0)
+
+!         do ibath=1,nbath
+!             ! index for vk(iorb,ibath) in x
+!             xidx = norb + nbath + (iorb-1)*nbath + ibath
+!             delta_cl = delta_cl + x(xidx)*x(xidx)/(cmplx(0.0d0,omega(iw))-x(norb+ibath))
+!         enddo
+
+!     end function delta_cl
+
+!     double precision function func(x)
+!         implicit none
+!         double precision :: x(nx)
+!         double precision :: func_loc, diff
+!         double complex :: gf
+
+!         integer :: iw, iorb, ibath, xidx
+
+!         func_loc = 0.0d0
+!         do iw=1,nwloc
+!             do iorb=1,norb
+!                 gf = cmplx(0.0d0,omega(iw))+mu-x(iorb)-delta_cl(iorb,iw,x)
+!                 gf = 1/gf
+!                 diff = abs(gf - G0(iw,iorb))
+!                 ! weight 1/omega(iw)
+!                 func_loc = func_loc + diff*diff/omega(iw)
+!             enddo
+!         enddo
+
+!         call mpi_allreduce(func_loc,func,1,mpi_double_precision,mpi_sum,comm,mpierr)
+
+!         func = func/float(norb)
+
+!     end function func
+
+!     ! overall factor for d/dxi |g0cl-g0|^2
+!     ! 2/(A^2 + B^2)^2
+!     double precision function fac0(A,B)
+!         double precision :: A,B
+!         fac0 = 2/(A**2+B**2)**2
+!     end function fac0
+
+!     ! coefficient of A'
+!     ! ( A^2- B^2 ) Re(G0(iorb,iw)) - A (1 + 2 B Im(G0(iorb,iw)))
+!     double precision function fac1(A,B,iorb,iw)
+!         double precision :: A,B
+!         integer :: iorb,iw
+!         fac1 = (A**2-B**2)*real(g0(iw,iorb))-A*(1+2*B*aimag(g0(iw,iorb)))
+!     end function fac1
+
+!     ! coefficient of B'
+!     ! B (-1 + 2 A Re(G0)) + ( A^2 - B^2 ) Im(G0)
+!     double precision function fac2(A,B,iorb,iw)
+!         double precision :: A,B
+!         integer :: iorb,iw
+!         fac2 = B*(-1+2*A*real(g0(iw,iorb))) - (A**2-B**2)*aimag(g0(iw,iorb))
+!     end function fac2
+
+!     subroutine dfunc(x,df)
+!         implicit none
+!         double precision :: x(nx),df(nx),df_loc(nx)
+
+!         double precision :: atmp, diff, A, B, P
+!         double complex :: gf, dcl
+
+!         integer :: iw, iorb, jorb, ibath, jbath, xidx
+
+!         do iorb=1,norb
+!             df_loc(iorb) = 0.0d0
+!             do iw=1,nwloc
+!                 dcl = delta_cl(iorb,iw,x)
+!                 A = mu - x(iorb) - real(dcl)
+!                 B = omega(iw) - aimag(dcl)
+
+!                 ! Ap = - delta(m,m')
+!                 ! Bp = 0
+!                 df_loc(iorb) = df_loc(iorb) - fac0(A,B)*fac1(A,B,iorb,iw)/omega(iw)
+!             enddo
+
+!             df_loc(iorb) = df_loc(iorb)/norb
+!         enddo
+
+!         do ibath=1,nbath
+!             df_loc(ibath) = 0.0d0
+!             do iw=1,nwloc
+!                 do iorb=1,norb
+
+!                     ! Ap = 0
+!                     ! Bp = -v(iorb,ibath)**2 * omega(iw) * 2 * ek(norb+ibath)/
+!                     !       (omega(iw)**2+ek(norb+ibath)**2)**2
+!                     xidx = norb + nbath + (iorb-1)*nbath + ibath
+!                     P = -x(xidx)**2 * omega(iw) * 2 * x(norb+ibath)/ &
+!                         (omega(iw)**2+x(norb+ibath)**2)**2
+
+!                     df_loc(ibath) = df_loc(ibath) + fac0(A,B)/omega(iw)*fac2(A,B,iorb,iw)*P
+!                 enddo
+!             enddo
+!             df_loc(ibath) = df_loc(ibath)/norb
+!         enddo
+
+!         do iorb=1,norb
+!             do ibath=1,nbath
+!                 xidx = norb + nbath + (iorb-1)*nbath + ibath
+!                 df_loc(xidx) = 0.0d0
+!                 do iw=1,nwloc
+!                     ! Ap = 0
+!                     ! Bp = 2*x(xidx)*omega(iw)/(omega(iw)**2+ek(norb+ibath)**2)
+!                     P = 2*x(xidx)*omega(iw)/(omega(iw)**2+x(norb+ibath)**2)
+!                     df_loc(xidx) = df_loc(xidx)+fac0(A,B)/omega(iw)*fac2(A,B,iorb,iw)*P
+!                 enddo
+!             enddo
+!         enddo
+
+!         call mpi_allreduce(df_loc,df,nx,mpi_double_precision,mpi_sum,comm,mpierr)
+
+!         df = df/float(norb)
+
+!     end subroutine dfunc

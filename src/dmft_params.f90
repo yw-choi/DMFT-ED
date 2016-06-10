@@ -14,7 +14,9 @@ module dmft_params
 
     double precision :: &
         U,            & ! U
+        Up,           & ! U'
         Jex,          & ! J
+        Jp,           & ! J'
         Mu,           & ! chemical potential
         beta,         & ! inverse temperature
         broadening,   & ! inverse temperature
@@ -54,6 +56,9 @@ contains
 
         U = fdf_get("DMFT.U", 1.0D0)
         Jex = fdf_get("DMFT.J",0.3D0) 
+        Up = fdf_get("DMFT.Up",0.4D0)
+        Jp = fdf_get("DMFT.Jp",0.3D0) 
+
         Mu = fdf_get("DMFT.Mu",1.0D0)
         beta = fdf_get("DMFT.beta", 100.0D0)
 

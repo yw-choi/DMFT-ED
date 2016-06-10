@@ -77,7 +77,7 @@ contains
 
             do ia=1,na
                 if (master) then
-                    write(*,"(1x,a,I1,a,I2,a)") "Solving impurity problem for ia=",ia,")..."
+                    write(*,"(1x,a,I1,a,I2,a)") "Solving impurity problem for ia=",ia,"..."
                 endif
 
                 call solve(G0(:,:,:,ia), Sigma(:,:,:,ia))

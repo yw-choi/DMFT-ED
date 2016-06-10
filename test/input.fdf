@@ -16,35 +16,30 @@ DMFT.Nk                        10000
 DMFT.SpectralBroadening        0.01
 
 DMFT.Solver                    ED
-DMFT.ED.Nbath                  4
+DMFT.ED.Nbath                  2
 DMFT.ED.Nsector                1
 DMFT.ED.ContinuedFractionStep  20
 DMFT.ED.Nev                    10
 
 # up/down
 %block DMFT.ED.Sectors
-3 3
+2 2
 %endblock DMFT.ED.Sectors
-
 # impurity levels
 %block DMFT.ED.InitialImpurityLevels
-0.615170
-0.117434
+ 0.301513
+ 0.185099
 %endblock DMFT.ED.InitialImpurityLevels
 
 # bath levels
 %block DMFT.ED.InitialBathLevels
--0.372660
- 0.213113
- 1.558204
--0.250166
+ 0.305037
+-0.400000
 %endblock DMFT.ED.InitialBathLevels
 
 # impurity-bath coupling
 # iorb1 iorb2 ...
 %block DMFT.ED.InitialHybridization
-0.548119    0.000000
-0.000000    0.173475
-1.220920    0.000000
-0.000000    0.348230
+-0.304981    0.000000
+ 0.000000   -0.315912
 %endblock DMFT.ED.InitialHybridization
