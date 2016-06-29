@@ -49,8 +49,8 @@ contains
         basis%ne_up = ne_up
         basis%ne_down = ne_down
 
-        basis%nup   = icom(norb+nbath,ne_up)
-        basis%ndown = icom(norb+nbath,ne_down)
+        basis%nup   = icom(nsite,ne_up)
+        basis%ndown = icom(nsite,ne_down)
         basis%ntot  = basis%nup * basis%ndown
 
         basis%nloc  = basis%ntot/nprocs
@@ -77,7 +77,7 @@ contains
 
             do i=1,nud(ispin)
                 minrange = minrange + 2**(i-1)
-                maxrange = maxrange + 2**(norb+nbath-i)
+                maxrange = maxrange + 2**(nsite-i)
             enddo
             
             if (ispin.eq.1) then
@@ -90,7 +90,7 @@ contains
 
             do i=minrange,maxrange
                 nbit = 0
-                do j=0,norb+nbath-1
+                do j=0,nsite-1
                     if (BTEST(i,j)) then
                         nbit = nbit + 1
                     endif
@@ -124,7 +124,7 @@ contains
         iup = mod(idx-1,basis%nup)+1
         idown = (idx-1)/basis%nup+1
 
-        ed_basis_get = basis%up(iup)+2**(norb+nbath)*basis%down(idown)
+        ed_basis_get = basis%up(iup)+2**(nsite)*basis%down(idown)
     end function ed_basis_get
 
     ! ref : arXiv:1307.7542 eq (8)
@@ -135,8 +135,8 @@ contains
         ! local variables
         integer :: basis_i_up, basis_i_down
         
-        basis_i_up = mod(basis_i,2**norb+nbath)
-        basis_i_down = basis_i/(2**norb+nbath)
+        basis_i_up = mod(basis_i,2**(nsite))
+        basis_i_down = basis_i/(2**(nsite))
 
         ed_basis_idx = (basis%idx_down(basis_i_down)-1)*basis%nup + &
                              basis%idx_up(basis_i_up)

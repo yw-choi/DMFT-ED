@@ -24,7 +24,7 @@ contains
         Hk = cmplx(0.0d0, 0.0d0)
 
         nkx = int(sqrt(float(nk)))
-        dk = 2.0D0*pi/float(nkx)
+        dk = 2.0D0*pi/float(nkx-1)
 
         ik = 0
         do i = 1, nkx
@@ -59,7 +59,6 @@ contains
             Gk(na*norb*nspin,na*norb*nspin)
         integer :: i,j, ia,iorb, ja,jorb, ispin
 
-
         ! invGk = iw + mu - Hk - Sigma
         invGk = cmplx(0.0d0,0.0d0)
 
@@ -83,6 +82,7 @@ contains
 
         ! matrix inversion
         call cinv(invGk,na*norb*nspin,na*norb*nspin,Gk)
+        
 
         ! Extract diagonal elements to output
         do ia=1,na

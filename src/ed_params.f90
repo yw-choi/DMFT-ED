@@ -80,7 +80,7 @@ contains
             enddo
         endif
 
-        allocate(ek_in(nsite,nspin),vk_in(norb,nbath,nspin))
+        allocate(ek_in(nsite,2),vk_in(norb,nbath,2))
         ek_in = 0.0d0
         vk_in = 0.0d0
         if (fdf_block('DMFT.ED.InitialImpurityLevels', bfdf)) then

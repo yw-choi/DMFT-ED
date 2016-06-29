@@ -25,17 +25,16 @@ contains
         ! Read general DMFT parameters independent of solver.
         call read_dmft_params
 
-        ! impurity-solver-specific initialization
-        if (master) then
-            write(*,*) "Initializing impurity solver..."
-        endif
-        call solver_init
-
         if (master) then
             write(*,*) "Setting up matsubara grid..."
         endif
         call setup_matsubara_grid
 
+        ! impurity-solver-specific initialization
+        if (master) then
+            write(*,*) "Initializing impurity solver..."
+        endif
+        call solver_init
 
         allocate(G_prev(nwloc,norb,nspin,na)) 
         allocate(G(nwloc,norb,nspin,na))
@@ -80,19 +79,19 @@ contains
                     write(*,"(1x,a,I1,a,I2,a)") "Solving impurity problem for ia=",ia,"..."
                 endif
 
-                call solve(G0(:,:,:,ia), Sigma(:,:,:,ia))
+                call solve(iloop,G0(:,:,:,ia), Sigma(:,:,:,ia))
             enddo
 
+            call dump_data
             call update_local_green_ftn
             call update_weiss_ftn
             call check_dmft_converged
-            call dump_data
         enddo
 
         if (master) then
-            write(6,"(a)") repeat("=",80)
+            write(*,"(a)") repeat("=",80)
             write(*,*) "End of DMFT SCF loop."
-            write(6,"(a)") repeat("=",80)
+            write(*,"(a)") repeat("=",80)
         endif
     end subroutine dmft_loop
 
@@ -125,7 +124,13 @@ contains
             do ik=1,nk
                 ! sum Gk to G. take only site/orbital/spin diagonal part
                 call lattice_green_function(iw,ik,Sigma,Gk)
-                G(iw,:,:,:) = G(iw,:,:,:) + Gk(:,:,:)
+                do ia=1,na
+                    do ispin=1,nspin
+                        do iorb=1,norb
+                            G(iw,iorb,ispin,ia)=G(iw,iorb,ispin,ia)+Gk(iorb,ispin,ia)
+                        enddo
+                    enddo
+                enddo
             enddo
         enddo
 
@@ -139,7 +144,7 @@ contains
             write(*,*) "Updating the Weiss field..."
         endif
 
-        G0 = 1/(1/G+Sigma)
+        G0 = 1.d0/(1.d0/G+Sigma)
 
     end subroutine update_weiss_ftn
 
@@ -151,10 +156,14 @@ contains
         diff = sum(abs(G_prev(:,:,:,:)-G(:,:,:,:)))
         diff = diff / (na*norb*nspin*nwloc)
 
-        call mpi_allreduce(diff,diffsum,1,mpi_integer,mpi_sum,comm,mpierr)
+        call mpi_allreduce(diff,diffsum,1,mpi_double_precision,mpi_sum,comm,mpierr)
 
         if (master) then
+            write(*,*)
+            write(*,"(a)") repeat("=",80)
             write(*,"(1x,a,I4,a,E12.5)") "scf ",iloop," : diff = ",diffsum
+            write(*,"(a)") repeat("=",80)
+            write(*,*)
         endif
 
         if (diffsum < scf_tol) then

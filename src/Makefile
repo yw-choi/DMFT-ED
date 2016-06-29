@@ -8,7 +8,7 @@ OBJS = $(PROGRAM).o constants.o dmft.o \
 	   ed_solver.o matsubara_grid.o mpi.o \
 	   impurity_solver.o dmft_params.o io_units.o numeric_utils.o \
 	   dmft_lattice.o ed_projection.o ed_params.o ed_basis.o ed_full_diag.o \
-	   ed_hamiltonian.o ed_operator.o
+	   ed_hamiltonian.o ed_operator.o ed_green.o lanczos.o 
 
 default: $(PROGRAM)
 ##################
@@ -28,10 +28,14 @@ dmft.o: dmft_params.o matsubara_grid.o impurity_solver.o dmft_lattice.o
 impurity_solver.o: ed_solver.o 
 matsubara_grid.o: constants.o
 dmft_lattice.o: numeric_utils.o
-ed_solver.o: ed_params.o ed_projection.o ed_full_diag.o ed_hamiltonian.o
+ed_solver.o: ed_params.o ed_projection.o ed_full_diag.o ed_hamiltonian.o \
+			 ed_green.o 
+ed_green.o: lanczos.o ed_hamiltonian.o
+lanczos.o: numeric_utils.o
 ed_full_diag.o: ed_hamiltonian.o
 ed_hamiltonian.o: ed_operator.o ed_basis.o 
 ed_params.o: numeric_utils.o
+ed_operator.o: ed_basis.o
 
 $(FDF): 
 	cd fdf ; $(MAKE);

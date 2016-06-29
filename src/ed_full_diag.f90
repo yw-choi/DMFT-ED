@@ -8,8 +8,8 @@ module ed_full_diag
     use mpi
     use dmft_params, only: norb, beta
     use ed_params, only: nsite, nbath, eigpair_t, sectors, nsector, PROB_THRESHOLD
-    use ed_basis, only: generate_basis, basis_t
-    use ed_hamiltonian, only: generate_hamiltonian
+    use ed_basis, only: generate_basis, basis_t, ed_basis_get
+    use ed_hamiltonian, only: generate_hamiltonian, ek,vk
     use numeric_utils, only: boltzmann_factor
     use utils, only: die
 
@@ -30,9 +30,14 @@ contains
         double precision :: Z
         type(basis_t) :: basis
 
+        integer :: i,j
+
         if (nsector.gt.1) then
             call die("full_diagonalize", &
                 "full diagonalization for nsector>1 is not implemented.")
+        else if (nprocs.gt.1) then
+            call die("full_diagonalize", &
+                "full diagonalization for nprocs>1 is not implemented.")
         endif
 
         if (master) then
@@ -49,6 +54,42 @@ contains
         allocate(H(nh,nh),ev(nh),prob(nh))
 
         call generate_hamiltonian(basis,H)
+        ! open(unit=71,file="ekvk.dump",form="formatted",status="replace")
+        ! do i=1,nsite
+        !     write(71,"(F20.12)") ek(i,1)
+        ! enddo
+        ! write(71,*)
+        ! do i=1,norb
+        !     do j=1,nbath
+        !         write(71,"(F20.12)") vk(i,j,1)
+        !     enddo
+        !     write(71,*)
+        ! enddo
+        ! close(71)
+
+        ! open(unit=71,file="hamiltonian.dump",form="formatted",status="replace")
+        ! do i=1,nh
+        !     do j=1,nh
+        !         write(71,"(F20.12)", advance="no") H(i,j)
+        !     enddo
+        !     write(71,*)
+        ! enddo
+        ! close(71)
+
+        ! open(unit=71,file="basis.dump",form="formatted",status="replace")
+        ! do i=1,basis%nloc
+        !     write(71,"(I5,5x)",advance="no") i
+        !     do j=1,nsite
+        !         if (BTEST(ed_basis_get(basis,i),j-1)) then
+        !             write(71,"(I1)", advance="no") 1
+        !         else
+        !             write(71,"(I1)", advance="no") 0
+        !         endif
+        !     enddo
+        !     write(71,*)
+        ! enddo
+        ! close(71)
+
 
         ! note that lapack returned eigenvalues will be in ascending order
         call lapack_diag(basis,H,ev)
@@ -73,7 +114,6 @@ contains
             eigpairs(iev)%prob   = prob(iev)/Z
             allocate(eigpairs(iev)%vec(sectors(1,3)))
             eigpairs(iev)%vec(:) = H(:,iev)
-            write(*,*) ev(iev)
         enddo
 
         if (master) then
@@ -84,12 +124,21 @@ contains
             write(6,*)
             write(6,"(a)") " Eigenvalue          Prob         Sector   Level"
             do iev=1,nev_calc
-                write(6,"(1x,ES16.5,4x,ES11.5,2I8)") eigpairs(iev)%val,eigpairs(iev)%prob,&
+                write(6,"(1x,F16.10,4x,ES11.5,2I8)") eigpairs(iev)%val,eigpairs(iev)%prob,&
                                           eigpairs(iev)%sector,eigpairs(iev)%level
             enddo
             write(6,*)
         endif
 
+        ! open(unit=71,file="eigenvector.dump",form="formatted",status="replace")
+        ! do i=1,nh
+        !     do j=1,nev_calc
+        !         write(71,"(F20.12)", advance="no") eigpairs(j)%vec(i)
+        !     enddo
+        !     write(71,*)
+        ! enddo
+        ! close(71)
+        ! stop
     end subroutine full_diagonalize
 
     subroutine lapack_diag(basis,H,ev)

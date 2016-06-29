@@ -18,7 +18,7 @@ contains
     subroutine project_to_impurity_model(G0in,ek,vk)
         implicit none
         double complex, intent(in) :: G0in(nwloc,norb,nspin)
-        double precision, intent(inout) :: ek(norb+nbath,nspin), vk(norb,nbath,nspin)
+        double precision, intent(inout) :: ek(norb+nbath,2), vk(norb,nbath,2)
 
         ! local variables
         integer :: iter, i,j

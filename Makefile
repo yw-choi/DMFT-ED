@@ -3,6 +3,6 @@
 default: all
 
 all:
-	(cd src; $(MAKE); cd ..; cp src/dmft_ed.x bin)	
+	(cd src; $(MAKE); cd ..; cp src/main.x bin)	
 clean:
 	(cd src; $(MAKE) clean)

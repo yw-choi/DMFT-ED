@@ -28,13 +28,14 @@ contains
         end select
     end subroutine solver_init
 
-    subroutine solve(G0,Sigma)
+    subroutine solve(iloop,G0,Sigma)
+        integer, intent(in) :: iloop
         double complex, intent(in) :: G0(nwloc,norb,nspin)
         double complex, intent(out) :: Sigma(nwloc,norb,nspin)
 
         select case(solver)
             case ("ED")
-                call ed_solve(G0,Sigma)
+                call ed_solve(iloop,G0,Sigma)
             case default
                 call die("impurity_solver", "Specfieid solver is not implemented.")
         end select
