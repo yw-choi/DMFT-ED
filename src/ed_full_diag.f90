@@ -54,42 +54,6 @@ contains
         allocate(H(nh,nh),ev(nh),prob(nh))
 
         call generate_hamiltonian(basis,H)
-        ! open(unit=71,file="ekvk.dump",form="formatted",status="replace")
-        ! do i=1,nsite
-        !     write(71,"(F20.12)") ek(i,1)
-        ! enddo
-        ! write(71,*)
-        ! do i=1,norb
-        !     do j=1,nbath
-        !         write(71,"(F20.12)") vk(i,j,1)
-        !     enddo
-        !     write(71,*)
-        ! enddo
-        ! close(71)
-
-        ! open(unit=71,file="hamiltonian.dump",form="formatted",status="replace")
-        ! do i=1,nh
-        !     do j=1,nh
-        !         write(71,"(F20.12)", advance="no") H(i,j)
-        !     enddo
-        !     write(71,*)
-        ! enddo
-        ! close(71)
-
-        ! open(unit=71,file="basis.dump",form="formatted",status="replace")
-        ! do i=1,basis%nloc
-        !     write(71,"(I5,5x)",advance="no") i
-        !     do j=1,nsite
-        !         if (BTEST(ed_basis_get(basis,i),j-1)) then
-        !             write(71,"(I1)", advance="no") 1
-        !         else
-        !             write(71,"(I1)", advance="no") 0
-        !         endif
-        !     enddo
-        !     write(71,*)
-        ! enddo
-        ! close(71)
-
 
         ! note that lapack returned eigenvalues will be in ascending order
         call lapack_diag(basis,H,ev)
@@ -129,16 +93,6 @@ contains
             enddo
             write(6,*)
         endif
-
-        ! open(unit=71,file="eigenvector.dump",form="formatted",status="replace")
-        ! do i=1,nh
-        !     do j=1,nev_calc
-        !         write(71,"(F20.12)", advance="no") eigpairs(j)%vec(i)
-        !     enddo
-        !     write(71,*)
-        ! enddo
-        ! close(71)
-        ! stop
     end subroutine full_diagonalize
 
     subroutine lapack_diag(basis,H,ev)

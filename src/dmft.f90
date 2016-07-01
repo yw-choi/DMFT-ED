@@ -1,6 +1,6 @@
 module dmft
     use matsubara_grid
-    use impurity_solver, only: solver_init, solve
+    use impurity_solver, only: solver_init, solve, solver_post_processing
     use dmft_params
     use dmft_lattice
     use utils
@@ -79,7 +79,7 @@ contains
                     write(*,"(1x,a,I1,a,I2,a)") "Solving impurity problem for ia=",ia,"..."
                 endif
 
-                call solve(iloop,G0(:,:,:,ia), Sigma(:,:,:,ia))
+                call solve(iloop,ia,G0(:,:,:,ia), Sigma(:,:,:,ia))
             enddo
 
             call dump_data
@@ -96,13 +96,66 @@ contains
     end subroutine dmft_loop
 
     subroutine dmft_post_processing
-        ! @TODO calculates dynamical properties..
+        integer :: iw, iorb, ispin, ia
+        character(len=100) fn
+        double precision :: zq
+
+        if (master) then
+            ! dump final G0 G Sigma (only low frequency data)
+            do ia=1,na
+                do ispin=1,nspin
+                    do iorb=1,norb
+                        write(fn,"(a,I1.1,a1,I1.1,a1,I1.1,a)") &
+                            "green_ftn.",ia,".",ispin,".",iorb,".dat"
+                        open(unit=11,file=fn,form="formatted",status="replace")
+                        do iw=1,nwloc
+                            write(11,"(3F15.6)") omega(iw),real(G(iw,iorb,ispin,ia)),aimag(G(iw,iorb,ispin,ia))
+                        enddo
+                        close(11)
+                        write(fn,"(a,I1.1,a1,I1.1,a1,I1.1,a)") &
+                            "self_energy.",ia,".",ispin,".",iorb,".dat"
+                        open(unit=11,file=fn,form="formatted",status="replace")
+                        do iw=1,nwloc
+                            write(11,"(3F15.6)") omega(iw),real(Sigma(iw,iorb,ispin,ia)),aimag(Sigma(iw,iorb,ispin,ia))
+                        enddo
+                        close(11)
+                        write(fn,"(a,I1.1,a1,I1.1,a1,I1.1,a)") &
+                            "weiss_field.",ia,".",ispin,".",iorb,".dat"
+                        open(unit=11,file=fn,form="formatted",status="replace")
+                        do iw=1,nwloc
+                            write(11,"(3F15.6)") omega(iw),real(G0(iw,iorb,ispin,ia)),aimag(G0(iw,iorb,ispin,ia))
+                        enddo
+                        close(11)
+                    enddo
+                enddo
+            enddo
+
+            write(*,"(a)") repeat("=",80)
+            write(*,*) "Quasiparticle weight"
+            write(*,"(a)") repeat("=",80)
+            do ia=1,na
+                do ispin=1,nspin
+                    do iorb=1,norb
+                        zq = aimag(sigma(1,iorb,ispin,ia))/omega(1)                        
+
+                        zq = 1.d0/(1.d0-zq)
+
+                        write(*,"(a,3I3,F12.6)") "(ia,ispin,iorb,Z) = ",&
+                                                ia,ispin,iorb,zq
+                    enddo
+                enddo
+            enddo
+            write(*,"(a)") repeat("=",80)
+        endif
+
+        call mpi_barrier(comm,mpierr)
+
+        call solver_post_processing
 
     end subroutine dmft_post_processing
 
     subroutine dmft_finalize
         deallocate(G_prev,G,G0,Sigma)
-
     end subroutine dmft_finalize
 
     ! Calculates new local green function from the given self-energy, 
@@ -177,6 +230,8 @@ contains
         use io_units
         integer :: iw, iorb, ia, ispin
         character(len=100) :: fn
+        double precision :: zq
+
         if (master) then
             write(fn,"(a5,I3.3,a4)") "dmft.",iloop,".dat"
             open(unit=IO_DEBUG_DUMP,file=fn,status="replace")

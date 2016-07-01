@@ -7,7 +7,8 @@ module ed_projection
 
     public :: project_to_impurity_model
 
-    integer :: nx, iorb
+    integer :: nx, iorb, np
+
     double complex, allocatable :: G0(:)
 
     private
@@ -21,16 +22,14 @@ contains
 
         ! local variables
         integer :: itr, i,j, ispin
-        double precision, parameter :: tol = 1.0D-6 ! minimization tolerance 
-        double precision :: x(1+2*nbath), diff
+        double precision, parameter :: tol = 1.0D-7 ! minimization tolerance 
+        double precision :: x(1+2*nbath/norb), diff
 
-        ! For each (orb,spin),
-        ! number of fitting parameters :
-        !  - imp. lv : 1
-        !  - bath lv : nbath
-        !  - V_mk    : nbath
-        ! Total : 1 + 2*nbath
-        nx = 1 + 2*nbath
+        double precision :: df1(1+2*nbath/norb), df2(1+2*nbath/norb)
+
+        np = nbath/norb
+        ! # of fitting parameters for each orbital
+        nx = 1 + 2*np
 
         allocate(G0(nwloc))
 
@@ -48,18 +47,26 @@ contains
 
                 ! collect fitting parameters
                 x(1) = ek(iorb,ispin)
-                do j=1,nbath
-                    x(1+j) = ek(norb+j,ispin)
-                    x(1+nbath+j) = vk(iorb,j,ispin)
+                do j=1,np
+                    x(1+j) = ek(norb*j+iorb,ispin)
+                    x(1+np+j) = vk(iorb,norb*(j-1)+iorb,ispin)
                 enddo
 
                 ! find x that minimizing the differences b/w G0 and G0cl
                 call FRPRMN(x,nx,tol,itr,diff)
 
+                ! ! test analytic derivative against numerical one
+                ! call dfunc(x,df1)
+                ! call ndfunc(x,df2)
+                ! print *, "derivative diff = ", sum(df1-df2)
+
                 ! recast x to ek,vk
                 ek(iorb,ispin) = x(1)
-                ek(norb+1:norb+nbath,ispin) = x(2:1+nbath)
-                vk(iorb,:,ispin) = x(2+nbath:1+2*nbath)
+
+                do j=1,np
+                    ek(norb*j+iorb,ispin) = x(1+j)
+                    vk(iorb,norb*(j-1)+iorb,ispin) = x(1+np+j)
+                enddo
 
                 if (master) then
                     write(*,"(1x,a,I1,a,I1,a,I6,a,E12.4)") &
@@ -111,14 +118,12 @@ contains
         integer :: iw
         double precision :: x(nx)
 
-        integer :: ibath, xidx
+        integer :: i, xidx
 
         delta_cl = cmplx(0.0d0,0.0d0)
 
-        do ibath=1,nbath
-            ! index for vk(iorb,ibath) in x
-            xidx = 1+nbath+ibath
-            delta_cl = delta_cl + x(xidx)*x(xidx)/(cmplx(0.0d0,omega(iw))-x(1+ibath))
+        do i=1,np
+            delta_cl = delta_cl + x(1+np+i)*x(1+np+i)/(cmplx(0.0d0,omega(iw))-x(1+i))
         enddo
 
     end function delta_cl
@@ -133,120 +138,98 @@ contains
 
         func_loc = 0.0d0
         do iw=1,nwloc
-            gf = cmplx(0.0d0,omega(iw))+mu-x(1)-delta_cl(iw,x)
-            gf = 1/gf
+            gf = g0cl(iw,x)
             diff = abs(gf - G0(iw))
 
-            ! weight 1/omega(iw)
-            func_loc = func_loc + diff*diff !/omega(iw)
+            func_loc = func_loc + diff*diff*weight(iw)
         enddo
 
         call mpi_allreduce(func_loc,func,1,mpi_double_precision,mpi_sum,comm,mpierr)
     end function func
 
-    ! ! overall factor for d/dxi |g0cl-g0|^2
-    ! ! 2/(A^2 + B^2)^2
-    ! double precision function fac0(A,B)
-    !     double precision :: A,B
-    !     fac0 = 2/(A**2+B**2)**2
-    ! end function fac0
+    double precision function weight(iw)
+        integer :: iw
+        weight = 1/omega(iw)
+    end function
 
-    ! ! coefficient of A'
-    ! ! ( A^2- B^2 ) Re(G0(iw)) - A (1 + 2 B Im(G0(iw)))
-    ! double precision function fac1(A,B,iw)
-    !     double precision :: A,B
-    !     integer :: iw
-    !     fac1 = (A**2-B**2)*real(g0(iw))-A*(1+2*B*aimag(g0(iw)))
-    ! end function fac1
+    double complex function g0cl(iw,x)
+        integer :: iw
+        double precision :: x(nx)
 
-    ! ! coefficient of B'
-    ! ! B (-1 + 2 A Re(G0)) + ( A^2 - B^2 ) Im(G0)
-    ! double precision function fac2(A,B,iw)
-    !     double precision :: A,B
-    !     integer :: iw
-    !     fac2 = B*(-1+2*A*real(g0(iw))) - (A**2-B**2)*aimag(g0(iw))
-    ! end function fac2
+        g0cl = cmplx(0.d0,omega(iw)) + mu - x(1) - delta_cl(iw,x)
 
-    ! subroutine dfunc(x,df)
-    !     implicit none
-    !     double precision :: x(nx),df(nx),df_loc(nx)
+        g0cl = 1.0d0/g0cl
+    end function g0cl
 
-    !     double precision :: atmp, diff, A, B, P 
-    !     double complex :: gf, dcl
+    subroutine ndfunc(x,df)
+        implicit none
+        double precision, intent(in) :: x(nx)
+        double precision, intent(out) :: df(nx)
 
-    !     integer :: iw, ibath, ekidx, vkidx
+        double precision, parameter :: h = 1.0d-8
+        double precision :: f1, f2, xp(nx)
+        integer :: i,j
+        df = 0.0d0
+        do i=1,nx
+            xp = x
+            xp(i) = xp(i)+h
+            f1 = func(xp)
+            xp(i) = xp(i)-2*h
+            f2 = func(xp)
 
-    !     df_loc(1) = 0.0d0
-    !     do iw=1,nwloc
-    !         dcl = delta_cl(iw,x)
-    !         A = mu - x(1) - real(dcl)
-    !         B = omega(iw) - aimag(dcl)
-
-    !         ! Ap = - delta(m,m')
-    !         ! Bp = 0
-    !         ! weight = 1/omega(iw)
-    !         df_loc(1) = df_loc(1) - fac0(A,B)*fac1(A,B,iw)/omega(iw)
-    !     enddo
-
-    !     ! derivative wrt bath levels
-    !     do ibath=1,nbath
-    !         ekidx = 1+ibath
-    !         vkidx = 1+nbath+ibath
-    !         df_loc(ekidx) = 0.0d0
-    !         do iw=1,nwloc
-    !             ! Ap = 0
-    !             ! Bp = -v(iorb,ibath)**2 * omega(iw) * 2 * ek(norb+ibath)/
-    !             !       (omega(iw)**2+ek(norb+ibath)**2)**2
-    !             P = -x(vkidx)**2 * omega(iw) * 2 * x(ekidx)/ &
-    !                 (omega(iw)**2+x(ekidx)**2)**2
-
-    !             ! weight 1/omega(iw)
-    !             df_loc(ekidx) = df_loc(ekidx) + fac0(A,B)/omega(iw)*fac2(A,B,iw)*P
-    !         enddo
-    !     enddo
-
-    !     ! derivatives wrt hybridization..
-    !     do ibath=1,nbath
-    !         vkidx = 1 + nbath + ibath
-    !         ekidx = 1 + ibath
-    !         df_loc(vkidx) = 0.0d0
-    !         do iw=1,nwloc
-    !             ! Ap = 0
-    !             ! Bp = 2*x(vkidx)*omega(iw)/(omega(iw)**2+ek(norb+ibath)**2)
-    !             P = 2*x(vkidx)*omega(iw)/(omega(iw)**2+x(ekidx)**2)
-    !             df_loc(vkidx) = df_loc(vkidx)+fac0(A,B)/omega(iw)*fac2(A,B,iw)*P
-    !         enddo
-    !     enddo
-
-    !     call mpi_allreduce(df_loc,df,nx,mpi_double_precision,mpi_sum,comm,mpierr)
-    ! end subroutine dfunc
+            df(i) = (f1-f2)/(2*h)
+        enddo
+    end subroutine ndfunc
 
     ! numerical derivative
+    ! subroutine dfunc(x,df)
+    !     implicit none
+    !     double precision, intent(in) :: x(nx)
+    !     double precision, intent(out) :: df(nx)
+
+    !     double precision, parameter :: h = 1.0d-6
+    !     double precision :: f1, f2, xp(nx)
+    !     integer :: i,j
+    !     df = 0.0d0
+    !     do i=1,nx
+    !         xp = x
+    !         xp(i) = xp(i)+h
+    !         f1 = func(xp)
+    !         xp(i) = xp(i)-2*h
+    !         f2 = func(xp)
+
+    !         df(i) = (f1-f2)/(2*h)
+    !     enddo
+    ! end subroutine dfunc
+
     subroutine dfunc(x,df)
         implicit none
         double precision, intent(in) :: x(nx)
         double precision, intent(out) :: df(nx)
         
-        double precision, parameter :: h=1.0d-6
-        double precision :: df_loc(nx), xp(nx), f1, f2, fac
+        double precision :: df_loc(nx), fac
+        double complex :: gf, diffconjg, fac2, fac3
+        integer :: iw, i
 
-        integer :: ix
+        df_loc = 0.0d0
 
-        fac = 1/(2*h)
+        do iw=1,nwloc
+            gf = g0cl(iw,x)
+            diffconjg = conjg(gf-g0(iw))
 
-        do ix=1,nx
-            xp = x
-            xp(ix) = xp(ix) + h
-            f1 = func(xp)
-            xp(ix) = xp(ix) - 2*h
-            f2 = func(xp)
+            fac = 2*weight(iw)
 
-            df_loc(ix) = (f1-f2)*fac
-            if (df_loc(ix) /= df_loc(ix)) then
-                print *, f1
-                print *, f2
-                stop "df_loc nan"
-            endif
+            fac2 = diffconjg*gf*gf
+
+            df_loc(1) = df_loc(1)+fac*real(fac2)
+
+            do i=1,np
+                fac3 = x(1+np+i)*x(1+np+i)/(cmplx(0.d0,omega(iw))-x(1+i))**2
+                df_loc(1+i) = df_loc(1+i)+fac*real(fac2*fac3)
+
+                fac3 = 2*x(1+np+i)/(cmplx(0.d0,omega(iw))-x(1+i))
+                df_loc(1+np+i) = df_loc(1+np+i)+fac*real(fac2*fac3)
+            enddo
         enddo
 
         call mpi_allreduce(df_loc,df,nx,mpi_double_precision,mpi_sum,comm,mpierr)
@@ -274,6 +257,14 @@ contains
 
         fp = func(p)
         call dfunc(p,xi)
+
+        ! if (master) then
+        !     write(*,*) "initial value and differences"
+        !     write(*,*) "x                       df/dx"
+        !     do j=1,nx
+        !        write(*,*) p(j), xi(j) 
+        !     enddo
+        ! endif
 
         do j = 1, n
             g(j) = -xi(j)

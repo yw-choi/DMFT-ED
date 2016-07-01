@@ -1,5 +1,5 @@
 module ed_green
-    use dmft_params, only: norb, nspin
+    use dmft_params, only: norb, nspin, na
     use matsubara_grid, only: nwloc, omega
     use ed_params, only: nbath, nsite, nsector, &
                          nstep, sectors, eigpair_t, nev
@@ -13,37 +13,39 @@ module ed_green
 
     ! lanczos matrix elements
     double precision, allocatable :: &
-        ap(:,:,:,:), & ! ap(nstep,nev,norb,nspin)
-        bp(:,:,:,:), & ! bp(nstep,nev,norb,nspin)
-        an(:,:,:,:), & ! an(nstep,nev,norb,nspin)
-        bn(:,:,:,:)    ! bn(nstep,nev,norb,nspin)
+        ap(:,:,:,:,:), & ! ap(nstep,nev,norb,nspin,na)
+        bp(:,:,:,:,:), & ! bp(nstep,nev,norb,nspin,na)
+        an(:,:,:,:,:), & ! an(nstep,nev,norb,nspin,na)
+        bn(:,:,:,:,:)    ! bn(nstep,nev,norb,nspin,na)
 
     double complex, allocatable :: G_cl(:,:,:)
     double precision, allocatable :: H(:,:)
+
+    integer :: ia
 contains
 
     subroutine ed_green_init
-        allocate(ap(nstep,nev,norb,nspin),bp(nstep,nev,norb,nspin))
-        allocate(an(nstep,nev,norb,nspin),bn(nstep,nev,norb,nspin))
+        allocate(ap(nstep,nev,norb,nspin,na),bp(nstep,nev,norb,nspin,na))
+        allocate(an(nstep,nev,norb,nspin,na),bn(nstep,nev,norb,nspin,na))
         allocate(G_cl(nwloc,norb,nspin))
     end subroutine ed_green_init
 
     ! calculates the interacting cluster Green's function 
     ! using the Lanczos method.
-    subroutine cluster_green_ftn(nev_calc,eigpairs)
-        integer, intent(in) :: nev_calc
+    subroutine cluster_green_ftn(ia_in,nev_calc,eigpairs)
+        integer, intent(in) :: ia_in,nev_calc
         type(eigpair_t), intent(in) :: eigpairs(nev_calc)
         
         ! local variables
         integer :: iev, ispin, iorb, isector, ne_up, ne_down, iw, i
         type(basis_t) :: basis
 
+        ia = ia_in
+
         G_cl(:,:,:) = cmplx(0.0d0,0.0d0)
 
         do ispin = 1,nspin
             do iorb = 1,norb
-                ! G(iorb,ispin) = 
-                !          sum_{iev} G^+(iev,iorb,ispin,iev) + G^-(iev,iorb,ispin)
                 do iev = 1,nev_calc
                     isector = eigpairs(iev)%sector
 
@@ -62,27 +64,6 @@ contains
             enddo
         enddo
 
-        ! open(unit=91,file="gcl.dat",form="formatted")
-        ! do iw = 1,nwloc
-        !     write(91,"(3F20.8)") omega(iw), real(g_cl(iw,1,1)), aimag(g_cl(iw,1,1))
-        ! enddo
-        ! close(91)
-        ! open(unit=91,file="apbp.dat",form="formatted")
-        ! do iev=1,nev_calc
-        !     write(91,*) "ap       bp"
-        !     do i=1,nstep
-        !         write(91,"(2F12.6)") ap(i,iev,1,1),bp(i,iev,1,1)
-        !     enddo
-        !     write(91,*)
-        !     write(91,*) "an       bn"
-        !     do i=1,nstep
-        !         write(91,"(2F12.6)") an(i,iev,1,1),bn(i,iev,1,1)
-        !     enddo
-        !     write(91,*)
-
-        ! enddo
-        ! close(91)
-        ! stop
     end subroutine cluster_green_ftn
 
     subroutine multiply_h(n,x,y)
@@ -120,14 +101,14 @@ contains
         allocate(H(basis_out%nloc,basis_out%ntot))
         call generate_hamiltonian(basis_out, H)
         call lanczos_iteration( multiply_h, basis_out%nloc, v, nstep, &
-                                ap(:,iev,iorb,ispin), bp(:,iev,iorb,ispin) )
+                                ap(:,iev,iorb,ispin,ia), bp(:,iev,iorb,ispin,ia) )
 
         do iw = 1,nwloc
             z = cmplx(eigpair%val, omega(iw))
-            gr = continued_fraction_p(z, nstep, ap(:,iev,iorb,ispin), &
-                                                bp(:,iev,iorb,ispin))
-            bp(1,iev,iorb,ispin) = mpi_norm(v,basis_out%nloc)
-            gr = gr*bp(1,iev,iorb,ispin)*bp(1,iev,iorb,ispin)*eigpair%prob
+            gr = continued_fraction_p(z, nstep, ap(:,iev,iorb,ispin,ia), &
+                                                bp(:,iev,iorb,ispin,ia))
+            bp(1,iev,iorb,ispin,ia) = mpi_norm(v,basis_out%nloc)
+            gr = gr*bp(1,iev,iorb,ispin,ia)*bp(1,iev,iorb,ispin,ia)*eigpair%prob
             G_cl(iw,iorb,ispin) = G_cl(iw,iorb,ispin) + gr
         enddo
 
@@ -153,14 +134,14 @@ contains
         allocate(H(basis_out%nloc,basis_out%ntot))
         call generate_hamiltonian(basis_out, H)
         call lanczos_iteration( multiply_h, basis_out%nloc, v, nstep, &
-                                an(:,iev,iorb,ispin), bn(:,iev,iorb,ispin) )
+                                an(:,iev,iorb,ispin,ia), bn(:,iev,iorb,ispin,ia) )
         
         do iw = 1,nwloc
             z = cmplx(-eigpair%val, omega(iw))
-            gr = continued_fraction_m(z, nstep, an(:,iev,iorb,ispin), &
-                                                bn(:,iev,iorb,ispin))
-            bn(1,iev,iorb,ispin) = mpi_norm(v,basis_out%nloc)
-            gr = gr*bn(1,iev,iorb,ispin)*bn(1,iev,iorb,ispin)*eigpair%prob
+            gr = continued_fraction_m(z, nstep, an(:,iev,iorb,ispin,ia), &
+                                                bn(:,iev,iorb,ispin,ia))
+            bn(1,iev,iorb,ispin,ia) = mpi_norm(v,basis_out%nloc)
+            gr = gr*bn(1,iev,iorb,ispin,ia)*bn(1,iev,iorb,ispin,ia)*eigpair%prob
             
             g_cl(iw,iorb,ispin) = g_cl(iw,iorb,ispin) + gr
         enddo

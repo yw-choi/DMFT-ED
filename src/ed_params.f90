@@ -61,8 +61,8 @@ contains
         diag_method = fdf_get("DMFT.ED.Diagonalization", "full")
 
         nbath = fdf_get("DMFT.ED.Nbath",0)
-        if (nbath < norb) then
-            call die("ed_read_params", "nbath cannot be less than norb.")
+        if (mod(nbath,norb)/=0) then
+            call die("ed_read_params", "nbath should be multiple of norb.")
         endif
         nsite = norb+nbath
 

@@ -22,6 +22,7 @@ contains
         ! input levels, hybridization
         ek = ek_in
         vk = vk_in
+
     end subroutine ed_hamiltonian_init
 
     ! generates the Hamiltonian for the sector in basis
