@@ -13,25 +13,23 @@ module ed_basis
     public :: get_bitidx
 
     type, public :: basis_t
-        integer :: nloc
+        integer(kind=KIND_BASIS) :: nloc
 
-        integer :: ntot
-        integer :: nup
-        integer :: ndown
+        integer(kind=KIND_BASIS) :: ntot
+        integer(kind=KIND_BASIS) :: nup
+        integer(kind=KIND_BASIS) :: ndown
 
         integer :: ne_up
         integer :: ne_down
 
-        ! For up,down basis, 4-bit integer is sufficient,
-        ! because the maximum number of sites will not be more than 31.
-        integer, allocatable :: up(:)
-        integer, allocatable :: down(:)
+        integer(kind=KIND_BASIS), allocatable :: up(:)
+        integer(kind=KIND_BASIS), allocatable :: down(:)
 
-        integer, allocatable :: idx_up(:)
-        integer, allocatable :: idx_down(:)
+        integer(kind=KIND_BASIS), allocatable :: idx_up(:)
+        integer(kind=KIND_BASIS), allocatable :: idx_down(:)
 
-        integer, allocatable :: nlocals(:)
-        integer, allocatable :: offsets(:)
+        integer(kind=KIND_BASIS), allocatable :: nlocals(:)
+        integer(kind=KIND_BASIS), allocatable :: offsets(:)
     end type basis_t
 
     private
@@ -42,9 +40,9 @@ contains
         type(basis_t), intent(out) :: basis
 
         ! local variables
-        integer :: ispin, i, j, nam
-        integer :: minrange, maxrange, counts, nbit
-        integer :: nud(2)
+        integer(kind=KIND_BASIS) :: ispin, i, j, nam
+        integer(kind=KIND_BASIS) :: minrange, maxrange, counts, nbit
+        integer(kind=KIND_BASIS) :: nud(2)
 
         basis%ne_up = ne_up
         basis%ne_down = ne_down
@@ -113,10 +111,10 @@ contains
     ! ref : arXiv:1307.7542 eq (6)
     integer(kind=kind_basis) function ed_basis_get(basis,idx_loc) 
         type(basis_t), intent(in) :: basis
-        integer, intent(in) :: idx_loc
+        integer(kind=KIND_BASIS), intent(in) :: idx_loc
 
         ! local variables
-        integer :: iup, idown, idx
+        integer(kind=KIND_BASIS) :: iup, idown, idx
 
         ! local idx to global idx
         idx = idx_loc + basis%offsets(taskid)
@@ -128,12 +126,12 @@ contains
     end function ed_basis_get
 
     ! ref : arXiv:1307.7542 eq (8)
-    integer function ed_basis_idx(basis, basis_i)
+    integer(kind=KIND_BASIS) function ed_basis_idx(basis, basis_i)
         type(basis_t), intent(in) :: basis
         integer(kind=kind_basis) :: basis_i
 
         ! local variables
-        integer :: basis_i_up, basis_i_down
+        integer(kind=KIND_BASIS) :: basis_i_up, basis_i_down
         
         basis_i_up = mod(basis_i,2**(nsite))
         basis_i_down = basis_i/(2**(nsite))
@@ -142,8 +140,8 @@ contains
                              basis%idx_up(basis_i_up)
     end function ed_basis_idx
 
-    integer function get_bitidx(isite,ispin)
-        integer :: isite, ispin
+    integer(kind=KIND_BASIS) function get_bitidx(isite,ispin)
+        integer(kind=KIND_BASIS) :: isite, ispin
         get_bitidx = (ispin-1)*Nsite + isite-1
     end function get_bitidx
 end module ed_basis

@@ -9,6 +9,7 @@ module ed_hamiltonian
 
     public :: generate_hamiltonian
     public :: ed_hamiltonian_init
+    public :: multiply_H_OTF
 
     double precision, allocatable, public :: &
         ek(:,:),    &   ! ek(nsite,2)         impurity/bath onsite energies
@@ -209,4 +210,16 @@ contains
 
     end subroutine generate_hamiltonian
     
+    ! y = H*x
+    ! matrix element is on-the-fly generated
+    subroutine multiply_H_OTF(basis, x, y)
+        type(basis_t), intent(in) :: basis
+        double precision, intent(in) :: x(basis%nloc)
+        double precision, intent(out) :: y(basis%nloc)
+
+        stop "DONE"
+
+
+
+    end subroutine multiply_H_OTF
 end module ed_hamiltonian

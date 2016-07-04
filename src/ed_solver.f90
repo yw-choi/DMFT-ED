@@ -9,14 +9,17 @@ module ed_solver
                          eigpair_t
 
     use ed_hamiltonian, only: ed_hamiltonian_init, ek,vk
-    use ed_full_diag, only: full_diagonalize
     use ed_green, only: ed_green_init, cluster_green_ftn, G_cl, ap,bp,an,bn
+
+    use ed_diag_full, only: diag_full
+    use ed_diag_arpack
 
     implicit none
 
     ! number of eigenvalues that has prob>PROB_THRESHOLD
     ! and corresponding eigenvalues & eigenvectors
     integer :: nev_calc
+
     type(eigpair_t), allocatable :: eigpairs(:)
 
 contains
@@ -40,7 +43,9 @@ contains
         ! return the eigpairs.
         select case(diag_method)
             case ("full")
-                call full_diagonalize(nev_calc,eigpairs)
+                call diag_full(nev_calc,eigpairs)
+            case ("arpack")
+                call diag_arpack(nev_calc,eigpairs)
             case default
                 call die("ed_solve", "Diagonalization method is not implemented.")
         end select

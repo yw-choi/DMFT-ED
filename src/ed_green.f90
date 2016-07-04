@@ -2,7 +2,7 @@ module ed_green
     use dmft_params, only: norb, nspin, na
     use matsubara_grid, only: nwloc, omega
     use ed_params, only: nbath, nsite, nsector, &
-                         nstep, sectors, eigpair_t, nev
+                         nstep, sectors, nev, eigpair_t
     use ed_basis, only: basis_t, generate_basis
     use lanczos, only: lanczos_iteration
     use ed_operator, only: apply_c

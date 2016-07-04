@@ -1,4 +1,4 @@
-module ed_full_diag
+module ed_diag_full
 !==============================================================================
 ! Serial, full diagonalization for each sector using LAPACK.
 ! This is for testing small problems.
@@ -7,7 +7,7 @@ module ed_full_diag
     
     use mpi
     use dmft_params, only: norb, beta
-    use ed_params, only: nsite, nbath, eigpair_t, sectors, nsector, PROB_THRESHOLD
+    use ed_params, only: nsite, nbath, sectors, nsector, PROB_THRESHOLD, eigpair_t
     use ed_basis, only: generate_basis, basis_t, ed_basis_get
     use ed_hamiltonian, only: generate_hamiltonian, ek,vk
     use numeric_utils, only: boltzmann_factor
@@ -15,12 +15,12 @@ module ed_full_diag
 
     implicit none
 
-    public :: full_diagonalize
+    public :: diag_full
 
     private
 contains
 
-    subroutine full_diagonalize(nev_calc,eigpairs)
+    subroutine diag_full(nev_calc,eigpairs)
         integer, intent(out) :: nev_calc
         type(eigpair_t), allocatable, intent(out) :: eigpairs(:)
 
@@ -33,10 +33,10 @@ contains
         integer :: i,j
 
         if (nsector.gt.1) then
-            call die("full_diagonalize", &
+            call die("diag_full", &
                 "full diagonalization for nsector>1 is not implemented.")
         else if (nprocs.gt.1) then
-            call die("full_diagonalize", &
+            call die("diag_full", &
                 "full diagonalization for nprocs>1 is not implemented.")
         endif
 
@@ -86,14 +86,14 @@ contains
             write(6,"(a,ES10.3,a,I5)") " Number of eigenvalues (with prob > ", &
                                        PROB_THRESHOLD,") = ", nev_calc
             write(6,*)
-            write(6,"(a)") " Eigenvalue          Prob         Sector   Level"
+            write(6,"(a)") " Eigenvalue          Prob           Sector   Level"
             do iev=1,nev_calc
-                write(6,"(1x,F16.10,4x,ES11.5,2I8)") eigpairs(iev)%val,eigpairs(iev)%prob,&
+                write(6,"(1x,F16.10,4x,ES13.5,2I8)") eigpairs(iev)%val,eigpairs(iev)%prob,&
                                           eigpairs(iev)%sector,eigpairs(iev)%level
             enddo
             write(6,*)
         endif
-    end subroutine full_diagonalize
+    end subroutine diag_full
 
     subroutine lapack_diag(basis,H,ev)
         type(basis_t), intent(in) :: basis
@@ -114,4 +114,4 @@ contains
 
     end subroutine lapack_diag
 
-end module ed_full_diag
+end module ed_diag_full

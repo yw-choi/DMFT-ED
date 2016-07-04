@@ -33,6 +33,8 @@ module ed_params
         ek_in(:,:),    &   ! ek_in(nsite,nspin)       initial impurity/bath levels
         vk_in(:,:,:)       ! vk_in(norb,nbath,nspin)  initial impurity-bath hybridization
 
+    character(len=100), public :: diag_method
+
     type, public :: eigpair_t
         integer :: sector  ! sector index
         integer :: level   ! level index within the sector
@@ -43,8 +45,6 @@ module ed_params
         integer :: nloc    ! dimension of the eigenvector local to the processor
         double precision, allocatable :: vec(:) ! eigenvector
     end type eigpair_t
-
-    character(len=100), public :: diag_method
 
     private
 contains
@@ -59,12 +59,21 @@ contains
         integer :: i,j
 
         diag_method = fdf_get("DMFT.ED.Diagonalization", "full")
+        
 
         nbath = fdf_get("DMFT.ED.Nbath",0)
         if (mod(nbath,norb)/=0) then
             call die("ed_read_params", "nbath should be multiple of norb.")
         endif
         nsite = norb+nbath
+        select case(diag_method)
+            case ("full")
+                if (nsite>8) then
+                    call die("ed_read_params", "full diagonalization for nsite > 8 is not recommended. use arpack.")
+                endif
+            case default
+
+        end select
 
         nsector = fdf_get("DMFT.ED.Nsector",1)
         allocate(sectors(nsector,3))
