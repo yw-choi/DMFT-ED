@@ -39,7 +39,6 @@ module ed_params
     type, public :: eigpair_t
         integer :: sector  ! sector index
         integer :: level   ! level index within the sector
-        integer :: idx     ! index of eigval in ascending order
         double precision :: val   ! eigenvalue 
         double precision :: prob  ! exp(-beta*val)/Z
 

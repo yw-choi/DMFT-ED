@@ -73,7 +73,6 @@ contains
         do iev=1,nev_calc
             eigpairs(iev)%sector = 1
             eigpairs(iev)%level  = iev
-            eigpairs(iev)%idx    = iev
             eigpairs(iev)%val    = ev(iev)
             eigpairs(iev)%prob   = prob(iev)/Z
             allocate(eigpairs(iev)%vec(sectors(1,3)))

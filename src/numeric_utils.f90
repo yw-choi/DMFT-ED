@@ -179,4 +179,58 @@ contains
 
         return
     end function icom
+
+    SUBROUTINE SORT(N,ARRIN,INDX)
+
+!     SORTS AN ARRAY BY THE HEAPSORT METHOD
+!     W. H. PREUSS ET AL. NUMERICAL RECIPES
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+!     this routine is not useful for samll size of n.
+!     in particular n=1 lead to operation error.(arrin(0) is not defined.)
+!     if n is greater than ~ 20 this routine is more fast.
+!
+      DIMENSION ARRIN(N),INDX(N)
+!     DIMENSION ARRIN(1),INDX(1)
+      IF (N .EQ. 1) THEN
+        INDX(1) = 1
+        RETURN
+      ENDIF
+      DO 11 J=1,N
+        INDX(J)=J
+11    CONTINUE
+      L=N/2+1
+      IR=N
+10    CONTINUE
+        IF(L.GT.1)THEN
+          L=L-1
+          INDXT=INDX(L)
+          Q=ARRIN(INDXT)
+        ELSE
+          INDXT=INDX(IR)
+          Q=ARRIN(INDXT)
+          INDX(IR)=INDX(1)
+          IR=IR-1
+          IF(IR.EQ.1)THEN
+            INDX(1)=INDXT
+            RETURN
+          ENDIF
+        ENDIF
+        I=L
+        J=L+L
+20      IF(J.LE.IR)THEN
+          IF(J.LT.IR)THEN
+            IF(ARRIN(INDX(J)).LT.ARRIN(INDX(J+1)))J=J+1
+          ENDIF
+          IF(Q.LT.ARRIN(INDX(J)))THEN
+            INDX(I)=INDX(J)
+            I=J
+            J=J+J
+          ELSE
+            J=IR+1
+          ENDIF
+        GO TO 20
+        ENDIF
+        INDX(I)=INDXT
+      GO TO 10
+    END SUBROUTINE SORT
 end module numeric_utils

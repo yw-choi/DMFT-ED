@@ -1,5 +1,6 @@
 module ed_hamiltonian
 
+    use mpi
     use dmft_params, only: norb, U, Jex, mu, Up, Jp, nspin
     use utils, only: die
     use ed_params, only: nbath, kind_basis, nsite, ek_in, vk_in, nbathperorb
@@ -216,14 +217,21 @@ contains
         double precision, intent(in) :: x(basis%nloc)
         double precision, intent(out) :: y(basis%nloc)
 
-        double precision :: diag
+        double precision :: rowsum, x_all(basis%ntot)
         integer(kind=kind_basis) :: bra,ket,a,b
         integer :: iorb, jorb, ispin, isite, jsite, j, jbath
         integer :: ni(2),nj(2),imin,imax
         logical :: jb
 
+        call mpi_allgatherv(x, basis%nloc, mpi_double_precision, x_all,&
+            basis%nlocals, basis%offsets, mpi_double_precision, comm, mpierr)
+
+        y = 0.0d0
+
         bloop: do b = 1, basis%nloc
             bra = ed_basis_get(basis, b)
+            rowsum = 0.0d0
+
             do iorb = 1, norb
                 if (BTEST(bra,iorb-1)) then
                     ni(1) = 1
@@ -241,8 +249,9 @@ contains
                 ! 1. onsite energies up/dn, 
                 ! 2. intra orbital density-density
                 ! ==================================
-                diag = (ek(iorb,1)-mu)*ni(1) + (ek(iorb,2)-mu)*ni(2) &
-                            + U*ni(1)*ni(2)
+                rowsum = rowsum + &
+                        ((ek(iorb,1)-mu)*ni(1) + (ek(iorb,2)-mu)*ni(2) &
+                            + U*ni(1)*ni(2))*x(b)
 
                 ! ==================================
                 ! 3. inter orbital density-density
@@ -260,8 +269,8 @@ contains
                     else
                         nj(2) = 0
                     endif
-                    diag = diag + (Up-Jex)*(ni(1)*nj(1)+ni(2)*nj(2)) &
-                                    + Up*(ni(1)*nj(2)+ni(2)*nj(1))
+                    rowsum = rowsum + ((Up-Jex)*(ni(1)*nj(1)+ni(2)*nj(2)) &
+                                    + Up*(ni(1)*nj(2)+ni(2)*nj(1)))*x(b)
                 enddo
 
                 ! ==================================
@@ -279,17 +288,15 @@ contains
                             ! c^+_{iorb,ispin} b_{jbath,ispin}
                             ket = IBSET(IBCLR(bra,jsite-1), isite-1)
                             a = ed_basis_idx(basis, ket)
-                            ! @TODO how to fetch x(a) ?
-                            ! write(*,"(5I3,2B,F6.3)") 1,isite,jsite,iorb,jbath,bra, ket, &
-                            !     sgn(bra,isite,jsite)*vk(iorb,jbath,ispin)
+                            rowsum = rowsum &
+                               +sgn(bra,isite,jsite)*vk(iorb,jbath,ispin)*x_all(a)
 
                         else if (ni(ispin).ne.0 .and. .not.jb) then
                             ! b^+_{ibath,ispin} c_{iorb,ispin}
                             ket = IBSET(IBCLR(bra,isite-1),jsite-1)
                             a = ed_basis_idx(basis, ket)
-                            ! @TODO how to fetch x(a) ?
-                            ! write(*,"(5I3,2B,F6.3)") 2,isite,jsite,iorb,jbath,bra, ket, &
-                            !     -sgn(bra,isite,jsite)*vk(iorb,jbath,ispin)
+                            rowsum = rowsum &
+                               -sgn(bra,isite,jsite)*vk(iorb,jbath,ispin)*x_all(a)
                         endif
                     enddo
                 enddo
@@ -325,10 +332,8 @@ contains
                         ket = IBCLR(ket,jorb-1)
                         ket = IBSET(ket,iorb-1)
                         a = ed_basis_idx(basis, ket)
-                        ! write(*,"(3I3,2B,F6.3)") 1,iorb,jorb,bra, ket, &
-                        !         -sgn2(bra,imin,imax)*Jp
-                        !@TODO
-
+                        rowsum = rowsum &
+                            -sgn2(bra,imin,imax)*Jp*x_all(a)
                     endif
 
                     ! pair-hopping
@@ -341,9 +346,8 @@ contains
                         ket = IBCLR(ket,jorb-1)
                         ket = IBSET(ket,iorb-1)
                         a = ed_basis_idx(basis, ket)
-                        ! write(*,"(3I3,2B,F6.3)") 2,iorb,jorb,bra, ket, &
-                        !         sgn2(bra,imin,imax)*Jp
-                        ! @TODO
+                        rowsum = rowsum &
+                            +sgn2(bra,imin,imax)*Jp*x_all(a)
                     endif
                 enddo 
             enddo
@@ -353,15 +357,15 @@ contains
             ! ==================================
             do jbath=1,nbath
                 if (BTEST(bra,norb+jbath-1)) then
-                    diag = diag + ek(norb+jbath,1)
+                    rowsum = rowsum + ek(norb+jbath,1)*x(b)
                 endif
                 if (BTEST(bra,nsite+norb+jbath-1)) then
-                    diag = diag + ek(norb+jbath,nspin)
+                    rowsum = rowsum + ek(norb+jbath,nspin)*x(b)
                 endif
             enddo
-        enddo bloop
 
-        y = 0.0d0
+            y(b) = rowsum
+        enddo bloop
 
     end subroutine multiply_H_OTF
 
