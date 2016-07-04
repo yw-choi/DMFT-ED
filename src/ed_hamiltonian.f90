@@ -2,9 +2,8 @@ module ed_hamiltonian
 
     use dmft_params, only: norb, U, Jex, mu, Up, Jp, nspin
     use utils, only: die
-    use ed_params, only: nbath, kind_basis, nsite, ek_in, vk_in
+    use ed_params, only: nbath, kind_basis, nsite, ek_in, vk_in, nbathperorb
     use ed_basis, only: basis_t, ed_basis_get,  ed_basis_idx
-    use ed_operator, only: sgn
     implicit none
 
     public :: generate_hamiltonian
@@ -217,9 +216,182 @@ contains
         double precision, intent(in) :: x(basis%nloc)
         double precision, intent(out) :: y(basis%nloc)
 
-        stop "DONE"
+        double precision :: diag
+        integer(kind=kind_basis) :: bra,ket,a,b
+        integer :: iorb, jorb, ispin, isite, jsite, j, jbath
+        integer :: ni(2),nj(2),imin,imax
+        logical :: jb
 
+        bloop: do b = 1, basis%nloc
+            bra = ed_basis_get(basis, b)
+            do iorb = 1, norb
+                if (BTEST(bra,iorb-1)) then
+                    ni(1) = 1
+                else
+                    ni(1) = 0
+                endif
 
+                if (BTEST(bra,nsite+iorb-1)) then
+                    ni(2) = 1 
+                else
+                    ni(2) = 0
+                endif
+
+                ! ==================================
+                ! 1. onsite energies up/dn, 
+                ! 2. intra orbital density-density
+                ! ==================================
+                diag = (ek(iorb,1)-mu)*ni(1) + (ek(iorb,2)-mu)*ni(2) &
+                            + U*ni(1)*ni(2)
+
+                ! ==================================
+                ! 3. inter orbital density-density
+                ! ==================================
+                do jorb = iorb+1, norb
+                    ! n_j,up
+                    if (BTEST(bra,jorb-1)) then
+                        nj(1) = 1
+                    else
+                        nj(1) = 0
+                    endif
+                    ! n_j,dn
+                    if (BTEST(bra,nsite+jorb-1)) then
+                        nj(2) = 1
+                    else
+                        nj(2) = 0
+                    endif
+                    diag = diag + (Up-Jex)*(ni(1)*nj(1)+ni(2)*nj(2)) &
+                                    + Up*(ni(1)*nj(2)+ni(2)*nj(1))
+                enddo
+
+                ! ==================================
+                ! 4. hybridization 
+                ! ==================================
+                do ispin=1,2
+                    do j=1,nbathperorb
+                        jbath = (j-1)*norb+iorb
+                        isite = (ispin-1)*nsite+iorb
+                        jsite = (ispin-1)*nsite+norb+jbath
+
+                        jb = BTEST(bra, jsite-1)
+
+                        if (ni(ispin).eq.0 .and. jb) then
+                            ! c^+_{iorb,ispin} b_{jbath,ispin}
+                            ket = IBSET(IBCLR(bra,jsite-1), isite-1)
+                            a = ed_basis_idx(basis, ket)
+                            ! @TODO how to fetch x(a) ?
+                            ! write(*,"(5I3,2B,F6.3)") 1,isite,jsite,iorb,jbath,bra, ket, &
+                            !     sgn(bra,isite,jsite)*vk(iorb,jbath,ispin)
+
+                        else if (ni(ispin).ne.0 .and. .not.jb) then
+                            ! b^+_{ibath,ispin} c_{iorb,ispin}
+                            ket = IBSET(IBCLR(bra,isite-1),jsite-1)
+                            a = ed_basis_idx(basis, ket)
+                            ! @TODO how to fetch x(a) ?
+                            ! write(*,"(5I3,2B,F6.3)") 2,isite,jsite,iorb,jbath,bra, ket, &
+                            !     -sgn(bra,isite,jsite)*vk(iorb,jbath,ispin)
+                        endif
+                    enddo
+                enddo
+
+                ! ==================================
+                ! 5. spin-flip & pair-hopping
+                ! ==================================
+                do jorb=1,norb
+                    if (iorb==jorb) continue
+                    ! n_j,up
+                    if (BTEST(bra,jorb-1)) then
+                        nj(1) = 1
+                    else
+                        nj(1) = 0
+                    endif
+
+                    ! n_j,dn
+                    if (BTEST(bra,nsite+jorb-1)) then
+                        nj(2) = 1
+                    else
+                        nj(2) = 0
+                    endif
+
+                    imin = min(iorb,jorb)
+                    imax = max(iorb,jorb)
+                    ! spin-flip
+                    ! Jp c^+_{i,up} c_{j,up} c^+_{j,dn} c_{i,dn} 
+                    if (ni(1) == 0 .and. nj(1) /= 0 .and. &
+                        nj(2) == 0 .and. ni(2) /= 0) then
+
+                        ket = IBCLR(bra,nsite+iorb-1)
+                        ket = IBSET(ket,nsite+jorb-1)
+                        ket = IBCLR(ket,jorb-1)
+                        ket = IBSET(ket,iorb-1)
+                        a = ed_basis_idx(basis, ket)
+                        ! write(*,"(3I3,2B,F6.3)") 1,iorb,jorb,bra, ket, &
+                        !         -sgn2(bra,imin,imax)*Jp
+                        !@TODO
+
+                    endif
+
+                    ! pair-hopping
+                    ! Jp c^+_{i,up} c_{j,up} c^+_{i,dn} c_{j,dn}
+                    if (ni(1).eq.0.and.ni(2).eq.0.and.&
+                        nj(1).ne.0.and.nj(2).ne.0) then
+
+                        ket = IBCLR(bra,nsite+jorb-1)
+                        ket = IBSET(ket,nsite+iorb-1)
+                        ket = IBCLR(ket,jorb-1)
+                        ket = IBSET(ket,iorb-1)
+                        a = ed_basis_idx(basis, ket)
+                        ! write(*,"(3I3,2B,F6.3)") 2,iorb,jorb,bra, ket, &
+                        !         sgn2(bra,imin,imax)*Jp
+                        ! @TODO
+                    endif
+                enddo 
+            enddo
+            
+            ! ==================================
+            ! 6. bath onsite
+            ! ==================================
+            do jbath=1,nbath
+                if (BTEST(bra,norb+jbath-1)) then
+                    diag = diag + ek(norb+jbath,1)
+                endif
+                if (BTEST(bra,nsite+norb+jbath-1)) then
+                    diag = diag + ek(norb+jbath,nspin)
+                endif
+            enddo
+        enddo bloop
+
+        y = 0.0d0
 
     end subroutine multiply_H_OTF
+
+    ! (-1)^{ sum_{k=i}^{j-1} n_k }
+    ! it is assumed that i<j
+    integer function sgn(state, i, j) result(s)
+        integer :: i, j, k
+        integer(kind=kind_basis) :: state
+        s = 1
+        do k=i,j-1 
+            if (BTEST(state,k-1)) then
+                s = -s
+            endif
+        enddo
+    end function sgn
+
+    ! (-1)^{ sum_{k=i}^{j-1} n_{k,up}+n_{k,dn} }
+    ! it is assumed that i<j, i,j <= Nsite
+    integer function sgn2(state, i, j) result(s)
+        integer :: i, j, k
+        integer(kind=kind_basis) :: state
+        s = 1
+        do k=i,j-1 
+            if (BTEST(state,k-1)) then
+                s = -s
+            endif
+            if (BTEST(state,nsite+k-1)) then
+                s = -s
+            endif
+        enddo
+    end function sgn2
+
 end module ed_hamiltonian

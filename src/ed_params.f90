@@ -19,12 +19,13 @@ module ed_params
     integer, parameter, public :: &
         KIND_BASIS = 4 ! integer kind for basis representation
 
-    integer, public ::    &
-        nbath,    &   ! number of bath sites
-        nsite,    &   ! norb+nbath
-        nsector,  &   ! number of hamiltonain sector in (Q,Sz) basis
-        nev,      &   ! number of the lowest eigenvalues to be computed
-        nstep         ! number of steps in calculating continued fraction 
+    integer, public :: &
+        nbath,       &   ! number of bath sites
+        nbathperorb, &   ! nbath per orbital (when orbital diagonal)
+        nsite,       &   ! norb+nbath
+        nsector,     &   ! number of hamiltonain sector in (Q,Sz) basis
+        nev,         &   ! number of the lowest eigenvalues to be computed
+        nstep            ! number of steps in calculating continued fraction 
 
     integer, allocatable, public :: &
         sectors(:,:)  ! sectors(nsector,3) ne_up/ne_down/nbasis in each sectors
@@ -58,13 +59,13 @@ contains
 
         integer :: i,j
 
-        diag_method = fdf_get("DMFT.ED.Diagonalization", "full")
-        
+        diag_method = fdf_get("DMFT.ED.Diagonalization", "full") 
 
         nbath = fdf_get("DMFT.ED.Nbath",0)
         if (mod(nbath,norb)/=0) then
             call die("ed_read_params", "nbath should be multiple of norb.")
         endif
+        nbathperorb = nbath/norb
         nsite = norb+nbath
         select case(diag_method)
             case ("full")
