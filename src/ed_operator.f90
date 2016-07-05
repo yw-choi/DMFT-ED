@@ -41,10 +41,8 @@ contains
         allocate(vec_all(basis%ntot))
         vec_out = 0.0D0
 
-        vec_all = vec 
-        ! @TODO parallelize
-        ! call mpi_allgatherv(vec,basis%nloc,mpi_double_precision,vec_all,&
-        !     basis%nlocals,basis%offsets,mpi_double_precision,comm,mpierr)
+        call mpi_allgatherv(vec,basis%nloc,mpi_double_precision,vec_all,&
+            basis%nlocals,basis%offsets,mpi_double_precision,comm,mpierr)
 
         do i=1,basis_out%nloc
             basis_i = ed_basis_get(basis_out,i)

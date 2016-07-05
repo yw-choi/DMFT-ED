@@ -7,11 +7,12 @@ module ed_diag_arpack
     use mpi
     use dmft_params, only: norb, beta
     use ed_params, only: nev, nsite, nbath, eigpair_t, sectors, nsector, &
-                         PROB_THRESHOLD
+                         PROB_THRESHOLD, print_arpack_stat
     use ed_basis, only: generate_basis, basis_t, ed_basis_get
     use ed_hamiltonian, only: multiply_H_OTF
     use numeric_utils, only: boltzmann_factor, sort
     use utils, only: die
+    use timer, only: t1_diag_loop, t2_diag_loop, print_elapsed_time
 
     implicit none
 
@@ -32,14 +33,31 @@ contains
 
         double precision :: ground, Z
 
+        if (master) then
+            write(*,*) "ARPACK Diagonalization"
+        endif
+
         do isector=1,nsector
             ne_up = sectors(isector,1)
             ne_down = sectors(isector,2)
             nh = sectors(isector,3)
+            if (master) then
+                write(*,"(a,I3)") "    diagonalizing sector ",isector
+                write(*,"(a,I2,a2,I2,a2,I,a)")"    (ne_up, ne_dn, dim) = (",&
+                                    ne_up,", ",ne_down,", ",nh,")" 
+            endif
+
             
             call generate_basis(ne_up, ne_down, basis)
 
+            t1_diag_loop = mpi_wtime(mpierr)    
             call diagonalization(isector, basis, eigpairs_all(:, isector))
+            t2_diag_loop = mpi_wtime(mpierr)    
+
+            if (master) then
+                call print_elapsed_time("    diagonalization time", &
+                                        t1_diag_loop,t2_diag_loop)
+            endif
 
             do iev=1, nev
                 eigval((isector-1)*nev+iev) = eigpairs_all(iev,isector)%val
@@ -99,7 +117,8 @@ contains
         character(len=2), parameter :: which = 'SA'
 
         double precision :: v(basis%nloc, 2*nev), workd(3*basis%nloc), &
-                            resid(basis%nloc), ax(basis%nloc)
+                            resid(basis%nloc)
+        double precision, allocatable :: ax(:)
 
         double precision :: workl(2*nev*(2*nev+8)), d(2*nev,2), sigma, tol
 
@@ -152,13 +171,18 @@ contains
                 call die("diagonalization", "pdseupd ERROR")
             else
                 nconv =  iparam(5)
-                do j=1, nconv
-                    call multiply_H_OTF(basis, v(:,j), ax)
-                    call daxpy(basis%nloc, -d(j,1), v(1,j), 1, ax, 1)
-                    d(j,2) = pdnorm2( comm, basis%nloc, ax, 1 )
-                enddo
-                call pdmout(comm, 6, nconv, 2, d, ncv, -6, &
-                    'Ritz values and direct residuals')
+
+                if (print_arpack_stat) then
+                    allocate(ax(basis%nloc))
+                    do j=1, nconv
+                        call multiply_H_OTF(basis, v(:,j), ax)
+                        call daxpy(basis%nloc, -d(j,1), v(1,j), 1, ax, 1)
+                        d(j,2) = pdnorm2( comm, basis%nloc, ax, 1 )
+                    enddo
+                    call pdmout(comm, 6, nconv, 2, d, ncv, -6, &
+                        'Ritz values and direct residuals')
+                    deallocate(ax)
+                endif 
             end if
         endif
 

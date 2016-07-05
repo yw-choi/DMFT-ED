@@ -9,10 +9,11 @@ module ed_solver
                          eigpair_t
 
     use ed_hamiltonian, only: ed_hamiltonian_init, ek,vk
-    use ed_green, only: ed_green_init, cluster_green_ftn, G_cl, ap,bp,an,bn
+    use ed_green_otf, only: ed_green_init, cluster_green_ftn_otf, G_cl, ap,bp,an,bn
 
     use ed_diag_full, only: diag_full
-    use ed_diag_arpack
+    use ed_diag_arpack, only: diag_arpack
+    use timer, only: t1_green_loop, t2_green_loop, print_elapsed_time
 
     implicit none
 
@@ -50,8 +51,14 @@ contains
                 call die("ed_solve", "Diagonalization method is not implemented.")
         end select
 
-        ! calculates the interacting Green's function using Lanczos method.
-        call cluster_green_ftn(ia,nev_calc,eigpairs)
+        t1_green_loop = mpi_wtime(mpierr)
+        call cluster_green_ftn_otf(ia,nev_calc,eigpairs)
+        t2_green_loop = mpi_wtime(mpierr)
+
+        if (master) then
+            call print_elapsed_time("Cluster Green's function calculation time",&
+                t1_green_loop,t2_green_loop)
+        endif
 
         ! the self-energy 
         call cluster_self_energy(Sigma)

@@ -36,6 +36,8 @@ module ed_params
 
     character(len=100), public :: diag_method
 
+    logical, public :: print_arpack_stat 
+
     type, public :: eigpair_t
         integer :: sector  ! sector index
         integer :: level   ! level index within the sector
@@ -129,6 +131,8 @@ contains
 
         nstep = fdf_integer("DMFT.ED.ContinuedFractionStep", 20)
         nev = fdf_integer("DMFT.ED.Nev",20)
+
+        print_arpack_stat = fdf_get("DMFT.ED.ARPACKStat", .false.)
 
         if (master) then
             write(6,*)

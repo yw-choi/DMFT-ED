@@ -5,6 +5,8 @@ module dmft
     use dmft_lattice
     use utils
     use mpi
+    use timer, only: t1_solver, t2_solver, print_elapsed_time, &
+                     t1_update_loop, t2_update_loop
     implicit none
 
     integer ::  &
@@ -74,6 +76,8 @@ contains
                 write(*,*) "DMFT Loop ", iloop
             endif
 
+            t1_solver = mpi_wtime(mpierr)
+
             do ia=1,na
                 if (master) then
                     write(*,"(1x,a,I1,a,I2,a)") "Solving impurity problem for ia=",ia,"..."
@@ -82,10 +86,18 @@ contains
                 call solve(iloop,ia,G0(:,:,:,ia), Sigma(:,:,:,ia))
             enddo
 
+            t2_solver = mpi_wtime(mpierr)
+
             call dump_data
+
+            t1_update_loop = mpi_wtime(mpierr)
+
             call update_local_green_ftn
             call update_weiss_ftn
-            call check_dmft_converged
+
+            t2_update_loop = mpi_wtime(mpierr)
+
+            call loop_end
         enddo
 
         if (master) then
@@ -202,7 +214,7 @@ contains
     end subroutine update_weiss_ftn
 
     ! Test DMFT convergence.
-    subroutine check_dmft_converged
+    subroutine loop_end
         integer :: iw, ia, iorb
         double precision :: diff, diffsum
 
@@ -215,6 +227,8 @@ contains
             write(*,*)
             write(*,"(a)") repeat("=",80)
             write(*,"(1x,a,I4,a,E12.5)") "scf ",iloop," : diff = ",diffsum
+            call print_elapsed_time("Solver",t1_solver,t2_solver)
+            call print_elapsed_time("Update",t1_update_loop,t2_update_loop)
             write(*,"(a)") repeat("=",80)
             write(*,*)
         endif
@@ -222,7 +236,7 @@ contains
         if (diffsum < scf_tol) then
             converged = .true.
         endif
-    end subroutine check_dmft_converged
+    end subroutine loop_end
 
     subroutine dump_data
     ! dump current green ftn, weiss ftn, self energy

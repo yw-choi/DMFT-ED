@@ -1,12 +1,11 @@
-module ed_green
+module ed_green_otf
     use dmft_params, only: norb, nspin, na
     use matsubara_grid, only: nwloc, omega
     use ed_params, only: nbath, nsite, nsector, &
                          nstep, sectors, nev, eigpair_t
     use ed_basis, only: basis_t, generate_basis
-    use lanczos, only: lanczos_iteration
+    use lanczos_otf, only: lanczos_iteration_otf
     use ed_operator, only: apply_c
-    use ed_hamiltonian, only: generate_hamiltonian
     use numeric_utils, only: mpi_norm
 
     implicit none
@@ -19,7 +18,6 @@ module ed_green
         bn(:,:,:,:,:)    ! bn(nstep,nev,norb,nspin,na)
 
     double complex, allocatable :: G_cl(:,:,:)
-    double precision, allocatable :: H(:,:)
 
     integer :: ia
 contains
@@ -32,7 +30,7 @@ contains
 
     ! calculates the interacting cluster Green's function 
     ! using the Lanczos method.
-    subroutine cluster_green_ftn(ia_in,nev_calc,eigpairs)
+    subroutine cluster_green_ftn_otf(ia_in,nev_calc,eigpairs)
         integer, intent(in) :: ia_in,nev_calc
         type(eigpair_t), intent(in) :: eigpairs(nev_calc)
         
@@ -64,24 +62,7 @@ contains
             enddo
         enddo
 
-    end subroutine cluster_green_ftn
-
-    subroutine multiply_h(n,x,y)
-        ! @TODO should be parallelized
-        integer, intent(in) :: n
-        double precision, intent(in) :: x(n)
-        double precision, intent(out) :: y(n)
-
-        integer :: i,j
-
-        do i=1,n
-            y(i) = 0.0d0
-            do j=1,n
-                ! note that h(j,i) = h(i,j)
-                y(i) = y(i) + h(j,i)*x(j) 
-            enddo
-        enddo
-    end subroutine multiply_h
+    end subroutine cluster_green_ftn_otf
 
     subroutine green_particle(iev, iorb, ispin, basis, eigpair)
         type(basis_t), intent(in) :: basis
@@ -97,10 +78,7 @@ contains
         ! c^+_{iorb,ispin} | eigvec >
         call apply_c( basis, eigpair%vec, 1, iorb, ispin, basis_out, v )
 
-        ! @TODO should be parallelized
-        allocate(H(basis_out%nloc,basis_out%ntot))
-        call generate_hamiltonian(basis_out, H)
-        call lanczos_iteration( multiply_h, basis_out%nloc, v, nstep, &
+        call lanczos_iteration_otf( basis_out, v, nstep, &
                                 ap(:,iev,iorb,ispin,ia), bp(:,iev,iorb,ispin,ia) )
 
         do iw = 1,nwloc
@@ -112,7 +90,6 @@ contains
             G_cl(iw,iorb,ispin) = G_cl(iw,iorb,ispin) + gr
         enddo
 
-        deallocate(H)
     end subroutine green_particle
 
     subroutine green_hole(iev, iorb, ispin, basis, eigpair)
@@ -130,10 +107,7 @@ contains
         ! c^-_{iorb,ispin} | eigvec >
         call apply_c( basis, eigpair%vec, 2, iorb, ispin, basis_out, v )
 
-        ! @TODO should be parallelized
-        allocate(H(basis_out%nloc,basis_out%ntot))
-        call generate_hamiltonian(basis_out, H)
-        call lanczos_iteration( multiply_h, basis_out%nloc, v, nstep, &
+        call lanczos_iteration_otf( basis_out, v, nstep, &
                                 an(:,iev,iorb,ispin,ia), bn(:,iev,iorb,ispin,ia) )
         
         do iw = 1,nwloc
@@ -146,7 +120,6 @@ contains
             g_cl(iw,iorb,ispin) = g_cl(iw,iorb,ispin) + gr
         enddo
 
-        deallocate(H)
     end subroutine green_hole
 
     ! f =                         1 
@@ -190,4 +163,4 @@ contains
         enddo
         f = 1.d0/(z+a(1)-f)
     end function continued_fraction_m
-end module ed_green
+end module ed_green_otf

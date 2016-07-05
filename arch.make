@@ -1,7 +1,6 @@
 
 FC      = mpif90
-FFLAGS = -traceback -fast -no-ipo -xSSE4.2 \
-        -I$(MKLROOT)/include/fftw
+FFLAGS = -traceback -fast -no-ipo -xSSE4.2 -I$(MKLROOT)/include/fftw
 #FFLAGS  = -traceback -C -CB -I$(MKLROOT)/include/fftw -debug all
 
 FFTW    = $(MKLROOT)/interfaces/fftw3xf/libfftw3xf_intel.a
