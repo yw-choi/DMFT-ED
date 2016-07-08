@@ -149,7 +149,7 @@ contains
 
     double precision function weight(iw)
         integer :: iw
-        weight = 1/omega(iw)
+        weight = 1 !/omega(iw)
     end function
 
     double complex function g0cl(iw,x)
