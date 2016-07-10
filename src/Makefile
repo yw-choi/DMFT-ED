@@ -3,7 +3,6 @@
 include ../arch.make
 
 PROGRAM = main
-
 OBJS = $(PROGRAM).o timer.o constants.o dmft.o \
 	   ed_solver.o matsubara_grid.o mpi.o \
 	   impurity_solver.o dmft_params.o io_units.o numeric_utils.o \
