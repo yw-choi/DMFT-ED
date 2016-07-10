@@ -2,7 +2,6 @@ module dmft_lattice
     use mpi
     use constants
     use dmft_grid
-    use numeric_utils
     use dmft_params
     use utils, only: die
     use io_units 
@@ -10,14 +9,14 @@ module dmft_lattice
     implicit none
 
     public :: &
-        dmft_lattice_init, &
-        lattice_green_function
+        dmft_lattice_init
 
-    double complex, allocatable :: &
+
+    double complex, allocatable, public :: &
         Hk(:,:,:,:,:,:)  ! Hk(nk,norb,norb,nspin,na,na)
                          ! lattice hamiltonian
 
-    double precision, allocatable :: &
+    double precision, allocatable, public :: &
         dos(:,:,:,:), &  ! dos(nwmodel,norb,nspin,na)
         dosw(:)          ! dos energy grid
 
@@ -148,54 +147,6 @@ contains
 
         call dump_dos
     end subroutine tbh_model_2
-
-    ! Calculates the lattice Green's function at (iw,ik).
-    ! Only site/orbital/spin diagonal elements are returned.
-    ! @TODO needs to be generalized?
-    subroutine lattice_green_function(iw, ik, Sigma, Gkout)
-        use utils
-        integer, intent(in) :: ik, iw
-        double complex, intent(in) :: Sigma(nwloc,norb,nspin,na)
-        double complex, intent(out) :: Gkout(norb,nspin,na)
-
-        double complex :: invGk(na*norb*nspin,na*norb*nspin),&
-            Gk(na*norb*nspin,na*norb*nspin)
-        integer :: i,j, ia,iorb, ja,jorb, ispin
-
-        ! invGk = iw + mu - Hk - Sigma
-        invGk = cmplx(0.0d0,0.0d0)
-
-        ! @TODO indexing is somewhat arbitrary.
-        do ia=1,na
-            do ispin=1,nspin
-                do iorb=1,norb
-                    i = (ia-1)*norb*nspin+(ispin-1)*norb+iorb
-                    invGk(i,i) = invGk(i,i) + &
-                        cmplx(0.0d0,omega(iw)) + mu - Sigma(iw,iorb,ispin,ia)
-
-                    do ja=1,na
-                        do jorb=1,norb
-                            j = (ja-1)*norb*nspin+(ispin-1)*norb+jorb
-                            invGk(j,i) = invGk(j,i) - Hk(ik,iorb,jorb,ispin,ia,ja)
-                        enddo
-                    enddo
-                enddo
-            enddo
-        enddo
-
-        ! matrix inversion
-        call cinv(invGk,na*norb*nspin,na*norb*nspin,Gk)
-
-        ! Extract diagonal elements to output
-        do ia=1,na
-            do ispin=1,nspin
-                do iorb=1,norb
-                    i = (ia-1)*norb*nspin+(ispin-1)*norb+iorb
-                    Gkout(iorb,ispin,ia) = Gk(i,i)
-                enddo
-            enddo
-        enddo
-    end subroutine lattice_green_function
 
     subroutine dump_dos
         integer :: ia,ispin,iorb,iw,i
