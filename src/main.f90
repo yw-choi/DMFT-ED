@@ -4,16 +4,28 @@ program main
     use mpi
     use timer, only: t1_run, t2_run, print_elapsed_time
     implicit none
+    
+    character(len=100) :: input_file
 
     call mpi_setup
-    call fdf_init('input.fdf', 'fdf.out')
+
+    if (iargc()==0) then
+        input_file = "input.fdf"
+    else
+        call getarg(1,input_file)
+    endif
 
     if (master) then
         write(6,"(a)") repeat("=",80)
+        write(6,*)
         write(6,*) "Multi-orbital DMFT"
         write(6,*) "Number of processors = ", nprocs
+        write(6,*) "Input file = ", input_file
+        write(6,*)
         write(6,"(a)") repeat("=",80)
     endif
+
+    call fdf_init(input_file, 'fdf.out')
 
     t1_run = mpi_wtime(mpierr)
     
@@ -25,7 +37,13 @@ program main
     t2_run = mpi_wtime(mpierr)
 
     if (master) then
+        write(6,"(a)") repeat("=",80)
+        write(6,*)
         call print_elapsed_time("Total Running Time", t1_run, t2_run)
+        write(6,*)
+        write(6,*) "End of run."
+        write(6,*)
+        write(6,"(a)") repeat("=",80)
     endif
 
     call fdf_shutdown

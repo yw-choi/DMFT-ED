@@ -22,6 +22,9 @@ module dmft_params
         broadening,   & ! inverse temperature
         scf_tol         ! DMFT SCF tolerance
 
+    logical :: &
+        dump_loop_data  ! whether to dump the g0, g, sigma at each loop
+
 contains
 
     ! Read general DMFT parameters independent of solver.
@@ -70,8 +73,10 @@ contains
         nk = fdf_get("DMFT.Nk",10000)
         broadening = fdf_get("DMFT.SpectralBroadening", 0.02D0)
 
+        dump_loop_data = fdf_get("DMFT.DumpLoopData", .false.)
+
         if (master) then
-            write(msg,*) "Number of atoms in unit cell"
+            write(msg,*) "Number of atoms in a unit cell"
             write(6,'(3x,a40,2x,a,2x,I8)') msg, '=', na
             write(msg,*) "Number of spin components"
             write(6,'(3x,a40,2x,a,2x,I8)') msg, '=', nspin
@@ -79,8 +84,12 @@ contains
             write(6,'(3x,a40,2x,a,2x,I8)') msg, '=', Norb
             write(msg,*) "U"
             write(6,'(3x,a40,2x,a,2x,F8.3)') msg, '=', U
+            write(msg,*) "Up"
+            write(6,'(3x,a40,2x,a,2x,F8.3)') msg, '=', Up
             write(msg,*) "J"
             write(6,'(3x,a40,2x,a,2x,F8.3)') msg, '=', Jex
+            write(msg,*) "Jp"
+            write(6,'(3x,a40,2x,a,2x,F8.3)') msg, '=', Jp
             write(msg,*) "chemical potential"
             write(6,'(3x,a40,2x,a,2x,F8.3)') msg, '=', Mu
             write(msg,*) "beta (inverse temperature)"
@@ -95,6 +104,8 @@ contains
             write(6,'(3x,a40,2x,a,2x,I8)') msg, '=', nw
             write(msg,*) "Number of Real Frequencies"
             write(6,'(3x,a40,2x,a,2x,I8)') msg, '=', nwreal
+            write(msg,*) "Dump loop data"
+            write(6,'(3x,a40,2x,a,2x,L)') msg, '=', dump_loop_data
             write(6,'(a)') repeat("=",80)
             write(6,*)
         endif

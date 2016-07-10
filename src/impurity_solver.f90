@@ -17,6 +17,9 @@ module impurity_solver
 contains
 
     subroutine solver_init
+        if (master) then
+            write(*,*) "Initializing impurity solver..."
+        endif
 
         solver = fdf_get("DMFT.Solver", "ED")
 

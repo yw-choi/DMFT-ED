@@ -58,7 +58,7 @@ contains
         type(block_fdf)            :: bfdf
         type(parsed_line), pointer :: pline
 
-        integer :: i,j
+        integer :: i,j,ispin
 
         diag_method = fdf_get("DMFT.ED.Diagonalization", "full") 
 
@@ -151,9 +151,38 @@ contains
             write(6,'(3x,a40,2x,a,2x,I8)') text, '=', nev
             write(text,*) "Number of steps in continued fraction"
             write(6,'(3x,a40,2x,a,2x,I8)') text, '=', Nstep
-            !@TODO dump initial conditions (bath levels, hybridization)
             write(6,'(a)') repeat("=",80)
             write(6,*)
+        endif
+
+        if (master) then
+            write(*,*) 
+            write(*,*) "Initial impurity/bath levels"
+            do ispin=1,nspin
+                write(*,*) 
+                write(*,*) "Spin ",ispin
+                do i=1,norb
+                    write(*,"(1x,A,I2,F12.6)") "orb ",i,ek_in(i,ispin)
+                enddo
+                do i=norb+1,norb+nbath
+                    write(*,"(1x,A,I2,F12.6)") "bath ",(i-norb),ek_in(i,ispin)
+                enddo
+                write(*,*)
+                write(*,*) "Impurity/Bath Hybridization"
+                write(*,"(7x)", advance="no")
+                do i=1,norb
+                    write(*,"(4x,A3,I1,4x)",advance="no") "orb",i
+                enddo
+                write(*,*)
+                do i=1,nbath
+                    write(*,"(1x,a4,I2)",advance="no") "bath",i
+                    do j=1,norb
+                        write(*,"(F12.6)",advance="no") vk_in(j,i,ispin)
+                    enddo
+                    write(*,*)
+                enddo
+            enddo
+            write(*,*)
         endif
     end subroutine ed_read_params
 

@@ -1,4 +1,5 @@
 module dmft_lattice
+    use mpi
     use constants
     use matsubara_grid
     use numeric_utils
@@ -18,6 +19,10 @@ contains
         integer :: i,j,ik,nkx,iorb,ispin,ia
 
         double precision :: dk, kx, ky, ckx, cky
+
+        if (master) then
+            write(*,*) "Setting up lattice Hamiltonian..."
+        endif
 
         allocate(Hk(nk,norb,norb,nspin,na,na))
 

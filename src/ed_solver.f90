@@ -56,7 +56,7 @@ contains
         t2_green_loop = mpi_wtime(mpierr)
 
         if (master) then
-            call print_elapsed_time("Cluster Green's function calculation time",&
+            call print_elapsed_time(" Cluster Green's function calculation time",&
                 t1_green_loop,t2_green_loop)
         endif
 
@@ -116,10 +116,8 @@ contains
             close(381)
 
 
-            if (na.ne.1) stop "Not implemented"
-
             ! @TODO na=1 only for now
-            write(*,*) "Calculating spectral functions..."
+            if (na.ne.1) stop "Not implemented"
 
         endif
 

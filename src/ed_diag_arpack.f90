@@ -3,7 +3,6 @@ module ed_diag_arpack
 ! Parallel diagonalization using Parallel ARPACK library.
 !==============================================================================
 
-
     use mpi
     use dmft_params, only: norb, beta
     use ed_params, only: nev, nsite, nbath, eigpair_t, sectors, nsector, &
@@ -109,6 +108,7 @@ contains
     end subroutine diag_arpack
 
     subroutine diagonalization(isector, basis, eig)
+        include 'debug.h'
         integer, intent(in) :: isector
         type(basis_t), intent(in) :: basis
         type(eigpair_t), intent(out) :: eig(nev)
@@ -131,6 +131,10 @@ contains
 
         integer :: i, j, ierr
 
+        ndigit = -3
+        logfil = 6
+        msaupd = 1
+
         ldv = basis%nloc
         ncv = 2*nev
         lworkl = ncv*(ncv+8)
@@ -147,7 +151,6 @@ contains
 
         info = 0
         ido = 0
-
         do
             call pdsaupd( comm, ido, bmat, basis%nloc, which, nev, tol, resid, &
                 ncv, v, ldv, iparam, ipntr, workd, workl, lworkl, info )

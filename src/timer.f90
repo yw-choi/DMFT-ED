@@ -4,8 +4,7 @@ module timer
 
     double precision :: &
         t1_run, t2_run,                 &  ! Total Running Time
-        t1_solver, t2_solver,           &  ! solver
-        t1_update_loop, t2_update_loop, &  ! updating lattice green/weiss field
+        t1_loop, t2_loop,               &  ! time per one dmft scf loop
         t1_diag_loop, t2_diag_loop,     &  ! Diagonalization time in a loop
         t1_green_loop, t2_green_loop       ! Green's ftn calculation 
 

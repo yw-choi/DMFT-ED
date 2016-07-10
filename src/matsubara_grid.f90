@@ -23,6 +23,10 @@ contains
         integer :: namw, i
         character(len=200) :: msg
 
+        if (master) then
+            write(*,*) "Setting up matsubara grid..."
+        endif
+
         nwloc = nw/nprocs
         namw = mod(nw,nprocs)
         if(taskid.lt.namw) nwloc=nwloc+1
@@ -50,7 +54,7 @@ contains
 
         if (master) then
             write(*,'(a)') repeat("=",80)
-            write(*,'(4x,a)') "Matsubara Frequency Grid"
+            write(*,'(4x,a)') "Distribution of Matsubara Frequency Grid"
             write(*,'(a)') repeat("=",80)
             do i=1,nprocs
                 write(*,'(4x,a4,I4,1x,a1,1x,I6)') "node",i,":",nw_procs(i-1)

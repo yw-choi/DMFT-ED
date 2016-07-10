@@ -89,8 +89,11 @@ contains
             do ispin=1,nspin
                 write(*,*) 
                 write(*,*) "Spin ",ispin
-                do i=1,norb+nbath
-                    write(*,"(1x,A,I2,A,F12.6)") "ek(",i,") = ",ek(i,ispin)
+                do i=1,norb
+                    write(*,"(1x,A,I2,F12.6)") "orb ",i,ek(i,ispin)
+                enddo
+                do i=norb+1,norb+nbath
+                    write(*,"(1x,A,I2,F12.6)") "bath ",(i-norb),ek(i,ispin)
                 enddo
                 write(*,*)
                 write(*,*) "Impurity/Bath Hybridization"

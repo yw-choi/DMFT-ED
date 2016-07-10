@@ -5,8 +5,7 @@ module dmft
     use dmft_lattice
     use utils
     use mpi
-    use timer, only: t1_solver, t2_solver, print_elapsed_time, &
-                     t1_update_loop, t2_update_loop
+    use timer, only: t1_loop, t2_loop, print_elapsed_time, t1_run
     implicit none
 
     integer ::  &
@@ -27,15 +26,9 @@ contains
         ! Read general DMFT parameters independent of solver.
         call read_dmft_params
 
-        if (master) then
-            write(*,*) "Setting up matsubara grid..."
-        endif
         call setup_matsubara_grid
 
         ! impurity-solver-specific initialization
-        if (master) then
-            write(*,*) "Initializing impurity solver..."
-        endif
         call solver_init
 
         allocate(G_prev(nwloc,norb,nspin,na)) 
@@ -48,9 +41,6 @@ contains
         G0     = cmplx(0.0d0,0.0d0)
         Sigma  = cmplx(0.0d0,0.0d0)
 
-        if (master) then
-            write(*,*) "Setting up lattice Hamiltonian..."
-        endif
         call setup_lattice_hamiltonian
 
         ! Setting up the initial Weiss field
@@ -64,7 +54,9 @@ contains
 
         if (master) then
             write(6,"(a)") repeat("=",80)
-            write(*,*) "Start of DMFT SCF loop."
+            write(*,*)
+            write(*,*) "Start of DMFT SCF loop"
+            write(*,*)
             write(6,"(a)") repeat("=",80)
         endif
 
@@ -73,36 +65,37 @@ contains
         do while(.not.converged.and.iloop.le.nloop)
             iloop = iloop + 1
             if (master) then
+                write(6,"(a)") repeat("=",80)
+                write(*,*)
                 write(*,*) "DMFT Loop ", iloop
+                write(*,*)
+                write(6,"(a)") repeat("=",80)
             endif
 
-            t1_solver = mpi_wtime(mpierr)
+            t1_loop = mpi_wtime(mpierr)
 
             do ia=1,na
                 if (master) then
-                    write(*,"(1x,a,I1,a,I2,a)") "Solving impurity problem for ia=",ia,"..."
+                    write(*,"(1x,a,I1,a,I2,a)") "impurity problem for ia = ",ia
                 endif
 
                 call solve(iloop,ia,G0(:,:,:,ia), Sigma(:,:,:,ia))
             enddo
 
-            t2_solver = mpi_wtime(mpierr)
-
-            call dump_data
-
-            t1_update_loop = mpi_wtime(mpierr)
+            if (dump_loop_data) call dump_data
 
             call update_local_green_ftn
             call update_weiss_ftn
 
-            t2_update_loop = mpi_wtime(mpierr)
-
+            t2_loop = mpi_wtime(mpierr)
             call loop_end
         enddo
 
         if (master) then
             write(*,"(a)") repeat("=",80)
-            write(*,*) "End of DMFT SCF loop."
+            write(*,*)
+            write(*,*) "End of DMFT SCF loop"
+            write(*,*)
             write(*,"(a)") repeat("=",80)
         endif
     end subroutine dmft_loop
@@ -142,22 +135,23 @@ contains
                 enddo
             enddo
 
-            write(*,"(a)") repeat("=",80)
+            write(*,*) 
             write(*,*) "Quasiparticle weight"
-            write(*,"(a)") repeat("=",80)
+            write(*,*) 
+            write(*,*) "    Z(ia,ispin,iorb)"
+            write(*,*) "    ---------------------------"
             do ia=1,na
                 do ispin=1,nspin
                     do iorb=1,norb
-                        zq = aimag(sigma(1,iorb,ispin,ia))/omega(1)                        
-
+                        zq = aimag(sigma(1,iorb,ispin,ia))&
+                            /omega(1)                        
                         zq = 1.d0/(1.d0-zq)
-
-                        write(*,"(a,3I3,F12.6)") "(ia,ispin,iorb,Z) = ",&
-                                                ia,ispin,iorb,zq
+                        write(*,"(a,I2,a,I4,a,I3,a,F12.6)") &
+                            "     Z(",ia,",",ispin,",",iorb,",) = ",zq
                     enddo
                 enddo
             enddo
-            write(*,"(a)") repeat("=",80)
+            write(*,*) 
         endif
 
         call mpi_barrier(comm,mpierr)
@@ -225,11 +219,11 @@ contains
 
         if (master) then
             write(*,*)
-            write(*,"(a)") repeat("=",80)
-            write(*,"(1x,a,I4,a,E12.5)") "scf ",iloop," : diff = ",diffsum
-            call print_elapsed_time("Solver",t1_solver,t2_solver)
-            call print_elapsed_time("Update",t1_update_loop,t2_update_loop)
-            write(*,"(a)") repeat("=",80)
+            write(*,"(1x,a,I4,a,E12.5)") "loop ",iloop," done. scf diff = ",diffsum
+            call print_elapsed_time(" Elapsed time in a loop     ",&
+                                    t1_loop,t2_loop)
+            call print_elapsed_time(" Elapsed time from the start",&
+                                    t1_run,t2_loop)
             write(*,*)
         endif
 
