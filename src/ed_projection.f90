@@ -1,6 +1,6 @@
 module ed_projection
 
-    use matsubara_grid, only: omega, nwloc
+    use dmft_grid, only: omega, nwloc
     use ed_params, only: nbath
     use dmft_params, only: norb, mu, nw, nspin
     use mpi

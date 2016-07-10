@@ -2,13 +2,13 @@ module ed_solver
     use mpi
     use utils, only: die
     use dmft_params, only: norb, nspin, mu, na
-    use matsubara_grid, only: nwloc, omega
+    use dmft_grid, only: nwloc, omega
     use ed_projection, only: project_to_impurity_model
     use ed_params, only: ed_read_params, nbath, nsite, nsector, &
                          nev, nstep, sectors, ek_in, vk_in, diag_method, &
                          eigpair_t
 
-    use ed_hamiltonian, only: ed_hamiltonian_init, ek,vk
+    use ed_hamiltonian, only: ed_hamiltonian_init, ek,vk, dump_hamiltonian_params
     use ed_green_otf, only: ed_green_init, cluster_green_ftn_otf, G_cl, ap,bp,an,bn
 
     use ed_diag_full, only: diag_full
@@ -39,6 +39,8 @@ contains
 
         ! Find ek,vk by fitting the cluster quantity(e.g. G0cl) to G0.
         if (iloop>1) call project_to_impurity_model(G0,ek,vk)
+
+        call dump_hamiltonian_params
 
         ! Diagonalize the AIM Hamiltonian characterized by ek,vk and
         ! return the eigpairs.

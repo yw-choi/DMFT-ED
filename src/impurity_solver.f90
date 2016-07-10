@@ -7,7 +7,7 @@ module impurity_solver
     use fdf
     use utils
     use dmft_params
-    use matsubara_grid
+    use dmft_grid
     use ed_solver
 
     implicit none
@@ -16,7 +16,7 @@ module impurity_solver
 
 contains
 
-    subroutine solver_init
+    subroutine impurity_solver_init
         if (master) then
             write(*,*) "Initializing impurity solver..."
         endif
@@ -29,7 +29,7 @@ contains
             case default
                 call die("impurity_solver", "Specfieid solver is not implemented.")
         end select
-    end subroutine solver_init
+    end subroutine impurity_solver_init
 
     subroutine solve(iloop,ia,G0,Sigma)
         integer, intent(in) :: iloop, ia

@@ -1,30 +1,31 @@
-module matsubara_grid
+module dmft_grid
 
     use mpi
     use constants
     use dmft_params
 
-    public :: setup_matsubara_grid
+    public :: dmft_grid_init
 
     integer, public :: &
         nwloc           ! number of matsubara frequencies local to the node
     
     integer, allocatable, public :: &
         nw_procs(:),  & ! nw_procs(nprocs) number of matsubara frequencies for each processor
-        nw_offsets(:)   ! nw_offsets(nprocs) frequency index offsets 
+        nw_offsets(:)   ! nw_offsets(nprocs) global frequency index offsets 
 
     double precision, allocatable, public :: &
-        omega(:)        ! omega(nwloc) matsubara frequencies local to the node
-
+        omega(:),  &    ! omega(nwloc)  matsubara frequencies local to the node
+        omega_r(:)      ! omega(nwreal) real frequencies (not need to be parallelized)
     private
 contains
 
-    subroutine setup_matsubara_grid
+    subroutine dmft_grid_init
         integer :: namw, i
+        double precision :: dwr
         character(len=200) :: msg
 
         if (master) then
-            write(*,*) "Setting up matsubara grid..."
+            write(*,*) "Setting up frequency grid..."
         endif
 
         nwloc = nw/nprocs
@@ -64,6 +65,13 @@ contains
             write(*,*)
         endif
 
-    end subroutine setup_matsubara_grid
+        ! real frequency grid
+        allocate(omega_r(1:nwreal))
+        dwr = (wrmax-wrmin)/(nwreal-1)
+        do i = 1, nwloc
+            omega_r(i) = wrmin + dwr*(i-1)
+        enddo
 
-end module matsubara_grid
+    end subroutine dmft_grid_init
+
+end module dmft_grid

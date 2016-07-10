@@ -1,5 +1,6 @@
 module ed_hamiltonian
 
+    use io_units
     use mpi
     use dmft_params, only: norb, U, Jex, mu, Up, Jp, nspin
     use utils, only: die
@@ -7,9 +8,11 @@ module ed_hamiltonian
     use ed_basis, only: basis_t, ed_basis_get,  ed_basis_idx
     implicit none
 
-    public :: generate_hamiltonian
-    public :: ed_hamiltonian_init
-    public :: multiply_H_OTF
+    public :: &
+        generate_hamiltonian, &
+        ed_hamiltonian_init,  &
+        dump_hamiltonian_params,  &
+        multiply_H_OTF
 
     double precision, allocatable, public :: &
         ek(:,:),    &   ! ek(nsite,2)         impurity/bath onsite energies
@@ -398,4 +401,28 @@ contains
         enddo
     end function sgn2
 
+    subroutine dump_hamiltonian_params
+        integer :: ispin,i,j
+
+        if (master) then
+            open(unit=IO_H_PARAMS,file="h_imp.params",status="replace")
+            ! write(IO_H_PARAMS,*) na,nspin,norb,nbath
+
+            ! do ispin=1,nspin
+            !     do i=1,nsite
+            !         write(IO_H_PARAMS,*) ek(i)
+            !     enddo 
+
+            !     do i=1,norb
+            !         do j=1,nbath
+            !             write(IO_H_PARAMS,*) vk(i,j)
+            !         enddo
+            !     enddo
+            ! enddo
+
+
+            close(IO_H_PARAMS)
+        endif
+
+    end subroutine dump_hamiltonian_params
 end module ed_hamiltonian

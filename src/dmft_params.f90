@@ -3,14 +3,19 @@ module dmft_params
 ! DMFT parameters that do not change during the run.
 ! =============================================================================
 
-    integer ::  &
-        nspin,  & ! number of spin components 
-        na,    & ! number of atoms in unit cell
-        norb,   & ! number of impurity orbitals
-        nloop,  & ! maximum number of DMFT loop
-        nw,     & ! Total number of matsubara frequencies
-        nwreal, & ! Total number of real frequencies
-        nk
+    integer ::      &
+        nspin,      & ! number of spin components 
+        na,         & ! number of atoms in unit cell
+        norb,       & ! number of impurity orbitals
+        nloop,      & ! maximum number of DMFT loop
+        nw,         & ! Total number of matsubara frequencies
+        nwreal,     & ! Total number of real frequencies
+        nwmodel,    & ! # of frequency point used in model dos calculation
+        nk,         & ! number of k-points in lattice hamiltonian
+        tbham         ! type of tight-binding hamiltonian
+                      ! 0 : read from file
+                      ! 1 : 2d square lattice
+                      ! 2 : bethe lattice, infinite dimension (circular dos)
 
     double precision :: &
         U,            & ! U
@@ -20,15 +25,14 @@ module dmft_params
         Mu,           & ! chemical potential
         beta,         & ! inverse temperature
         broadening,   & ! inverse temperature
-        scf_tol         ! DMFT SCF tolerance
-
-    logical :: &
-        dump_loop_data  ! whether to dump the g0, g, sigma at each loop
+        scf_tol,      & ! DMFT SCF tolerance
+        wrmin,        & ! real frequency min
+        wrmax           ! real frequency max
 
 contains
 
     ! Read general DMFT parameters independent of solver.
-    subroutine read_dmft_params
+    subroutine dmft_params_read
         use fdf
         use mpi
         use utils
@@ -45,16 +49,16 @@ contains
         na  = fdf_get("DMFT.Na",0)
         nspin = fdf_get("DMFT.nspin",1)
         if (na.eq.0.and.master) then
-            call die("read_dmft_params", "Number of atoms must be larger than 0.")
+            call die("dmft_params_read", "Number of atoms must be larger than 0.")
         endif
 
         if (nspin.gt.2.and.master) then
-            call die("read_dmft_params", "currently, nspin=1,2 is implemented.")
+            call die("dmft_params_read", "currently, nspin=1,2 is implemented.")
         endif
 
         norb = fdf_get("DMFT.Norb",0)
         if (norb.eq.0.and.master) then
-            call die("read_dmft_params", "Number of orbitals must be larger than 0.")
+            call die("dmft_params_read", "Number of orbitals must be larger than 0.")
         endif
 
         U = fdf_get("DMFT.U", 1.0D0)
@@ -70,10 +74,13 @@ contains
 
         nw = fdf_get("DMFT.Matsubara.Nw",2000)
         nwreal = fdf_get("DMFT.Real.Nw",4000)
-        nk = fdf_get("DMFT.Nk",10000)
+        wrmin = fdf_get("DMFT.Real.wmin",-3.d0)
+        wrmax = fdf_get("DMFT.Real.wmax", 3.d0)
+        nwmodel = fdf_get("DMFT.ModelDOSNw",2000)
+        nk = fdf_get("DMFT.Nk",40000)
         broadening = fdf_get("DMFT.SpectralBroadening", 0.02D0)
 
-        dump_loop_data = fdf_get("DMFT.DumpLoopData", .false.)
+        tbham = fdf_get("DMFT.TBHamiltonian", 1)
 
         if (master) then
             write(msg,*) "Number of atoms in a unit cell"
@@ -104,12 +111,12 @@ contains
             write(6,'(3x,a40,2x,a,2x,I8)') msg, '=', nw
             write(msg,*) "Number of Real Frequencies"
             write(6,'(3x,a40,2x,a,2x,I8)') msg, '=', nwreal
-            write(msg,*) "Dump loop data"
-            write(6,'(3x,a40,2x,a,2x,L)') msg, '=', dump_loop_data
+            write(msg,*) "Tight-binding Hamiltonian"
+            write(6,'(3x,a40,2x,a,2x,I8)') msg, '=', tbham
             write(6,'(a)') repeat("=",80)
             write(6,*)
         endif
 
-    end subroutine read_dmft_params
+    end subroutine dmft_params_read
 
 end module dmft_params

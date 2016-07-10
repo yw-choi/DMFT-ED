@@ -1,6 +1,6 @@
 module ed_green_otf
     use dmft_params, only: norb, nspin, na
-    use matsubara_grid, only: nwloc, omega
+    use dmft_grid, only: nwloc, omega
     use ed_params, only: nbath, nsite, nsector, &
                          nstep, sectors, nev, eigpair_t
     use ed_basis, only: basis_t, generate_basis
