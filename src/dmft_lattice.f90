@@ -11,7 +11,6 @@ module dmft_lattice
     public :: &
         dmft_lattice_init
 
-
     double complex, allocatable, public :: &
         Hk(:,:,:,:,:,:)  ! Hk(nk,norb,norb,nspin,na,na)
                          ! lattice hamiltonian

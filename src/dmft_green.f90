@@ -41,6 +41,8 @@ contains
         G0     = cmplx(0.0d0,0.0d0)
         Sigma  = cmplx(0.0d0,0.0d0)
 
+        ! @TODO read the initial data from file when requested
+
         ! Setting up the initial Weiss field
         call update_local_green_ftn
         call update_weiss_ftn

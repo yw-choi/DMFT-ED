@@ -2,6 +2,7 @@ module ed_hamiltonian
 
     use io_units
     use mpi
+    use dmft_lattice, only: tbham, hk
     use dmft_params, only: norb, U, Jex, mu, Up, Jp, nspin
     use utils, only: die
     use ed_params, only: nbath, kind_basis, nsite, ek_in, vk_in, nbathperorb
@@ -22,11 +23,47 @@ module ed_hamiltonian
 contains
 
     subroutine ed_hamiltonian_init
+        integer :: ispin,iorb,i,j
         allocate(ek(nsite,2),vk(norb,nbath,2))
         ! input levels, hybridization
         ek = ek_in
         vk = vk_in
 
+        ! if the lattice hamiltonian is given,
+        ! use the initial 
+        if (tbham==0 .or. tbham==1) then
+        endif
+
+        if (master) then
+            write(*,*) 
+            write(*,*) "Initial impurity/bath levels"
+            do ispin=1,nspin
+                write(*,*) 
+                write(*,*) "Spin ",ispin
+                do i=1,norb
+                    write(*,"(1x,A,I2,F12.6)") "orb ",i,ek(i,ispin)
+                enddo
+                do i=norb+1,norb+nbath
+                    write(*,"(1x,A,I2,F12.6)") "bath ",(i-norb),ek(i,ispin)
+                enddo
+                write(*,*)
+                write(*,*) "Impurity/Bath Hybridization"
+                write(*,"(7x)", advance="no")
+                do i=1,norb
+                    write(*,"(4x,A3,I1,4x)",advance="no") "orb",i
+                enddo
+                write(*,*)
+                do i=1,nbath
+                    write(*,"(1x,a4,I2)",advance="no") "bath",i
+                    do j=1,norb
+                        write(*,"(F12.6)",advance="no") vk(j,i,ispin)
+                    enddo
+                    write(*,*)
+                enddo
+            enddo
+            write(*,*)
+        endif
+        call mpi_barrier(comm, mpierr)
     end subroutine ed_hamiltonian_init
 
     ! generates the Hamiltonian for the sector in basis

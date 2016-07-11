@@ -36,7 +36,11 @@ module ed_params
 
     character(len=100), public :: diag_method
 
-    logical, public :: print_arpack_stat 
+    logical, public :: &
+        print_arpack_stat,  &
+        read_h_imp_params,  & ! read initial impurity hamiltonian parameters 
+                              ! from file h_imp.params
+        em_present, ek_present, vk_present
 
     type, public :: eigpair_t
         integer :: sector  ! sector index
@@ -91,10 +95,13 @@ contains
             enddo
         endif
 
+        read_h_imp_params = fdf_get("DMFT.ED.HimpParamsFromFile", .false.)
+
         allocate(ek_in(nsite,2),vk_in(norb,nbath,2))
         ek_in = 0.0d0
         vk_in = 0.0d0
-        if (fdf_block('DMFT.ED.InitialImpurityLevels', bfdf)) then
+        em_present = fdf_block('DMFT.ED.InitialImpurityLevels', bfdf)
+        if (em_present) then
             i = 1
             do while( (i .le. norb) .and. (fdf_bline(bfdf, pline)))
                 ! @TODO initial imp/bath levels are assumed to 
@@ -105,6 +112,7 @@ contains
             enddo
         endif
 
+        ek_present = fdf_block('DMFT.ED.InitialBathLevels', bfdf)
         if (fdf_block('DMFT.ED.InitialBathLevels', bfdf)) then
             i = 1
             do while( (i .le. nbath) .and. (fdf_bline(bfdf, pline)))
@@ -116,7 +124,8 @@ contains
             enddo
         endif
 
-        if (fdf_block('DMFT.ED.InitialHybridization', bfdf)) then
+        vk_present = fdf_block('DMFT.ED.InitialHybridization', bfdf)
+        if (vk_present) then
             i = 1
             do while( i.le.nbath .and. (fdf_bline(bfdf, pline)))
                 do j=1,norb
@@ -154,37 +163,5 @@ contains
             write(6,'(a)') repeat("=",80)
             write(6,*)
         endif
-
-        if (master) then
-            write(*,*) 
-            write(*,*) "Initial impurity/bath levels"
-            do ispin=1,nspin
-                write(*,*) 
-                write(*,*) "Spin ",ispin
-                do i=1,norb
-                    write(*,"(1x,A,I2,F12.6)") "orb ",i,ek_in(i,ispin)
-                enddo
-                do i=norb+1,norb+nbath
-                    write(*,"(1x,A,I2,F12.6)") "bath ",(i-norb),ek_in(i,ispin)
-                enddo
-                write(*,*)
-                write(*,*) "Impurity/Bath Hybridization"
-                write(*,"(7x)", advance="no")
-                do i=1,norb
-                    write(*,"(4x,A3,I1,4x)",advance="no") "orb",i
-                enddo
-                write(*,*)
-                do i=1,nbath
-                    write(*,"(1x,a4,I2)",advance="no") "bath",i
-                    do j=1,norb
-                        write(*,"(F12.6)",advance="no") vk_in(j,i,ispin)
-                    enddo
-                    write(*,*)
-                enddo
-            enddo
-            write(*,*)
-        endif
     end subroutine ed_read_params
-
-
 end module ed_params
