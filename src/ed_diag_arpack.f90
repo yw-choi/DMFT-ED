@@ -8,7 +8,7 @@ module ed_diag_arpack
     use ed_params, only: nev, nsite, nbath, eigpair_t, sectors, nsector, &
                          PROB_THRESHOLD, print_arpack_stat
     use ed_basis, only: generate_basis, basis_t, ed_basis_get
-    use ed_hamiltonian, only: multiply_H_OTF
+    use ed_hamiltonian, only: multiply_H
     use numeric_utils, only: boltzmann_factor, sort
     use utils, only: die
     use timer, only: t1_diag_loop, t2_diag_loop, print_elapsed_time
@@ -21,7 +21,8 @@ module ed_diag_arpack
 
 contains
 
-    subroutine diag_arpack(nev_calc, eigpairs)
+    subroutine diag_arpack(ia, nev_calc, eigpairs)
+        integer, intent(in) :: ia
         integer, intent(out) :: nev_calc
         type(eigpair_t), allocatable, intent(out) :: eigpairs(:)
 
@@ -46,11 +47,10 @@ contains
                                     ne_up,", ",ne_down,", ",nh,")" 
             endif
 
-            
             call generate_basis(ne_up, ne_down, basis)
 
             t1_diag_loop = mpi_wtime(mpierr)    
-            call diagonalization(isector, basis, eigpairs_all(:, isector))
+            call diagonalization(ia, isector, basis, eigpairs_all(:, isector))
             t2_diag_loop = mpi_wtime(mpierr)    
 
             if (master) then
@@ -107,9 +107,9 @@ contains
 
     end subroutine diag_arpack
 
-    subroutine diagonalization(isector, basis, eig)
+    subroutine diagonalization(ia, isector, basis, eig)
         include 'debug.h'
-        integer, intent(in) :: isector
+        integer, intent(in) :: isector, ia
         type(basis_t), intent(in) :: basis
         type(eigpair_t), intent(out) :: eig(nev)
 
@@ -155,7 +155,7 @@ contains
             call pdsaupd( comm, ido, bmat, basis%nloc, which, nev, tol, resid, &
                 ncv, v, ldv, iparam, ipntr, workd, workl, lworkl, info )
             if (ido .eq. -1 .or. ido .eq. 1) then
-                call multiply_H_OTF(basis, workd(ipntr(1)), workd(ipntr(2)))
+                call multiply_H(ia, basis, workd(ipntr(1)), workd(ipntr(2)))
             else
                 exit
             endif
@@ -178,7 +178,7 @@ contains
                 if (print_arpack_stat) then
                     allocate(ax(basis%nloc))
                     do j=1, nconv
-                        call multiply_H_OTF(basis, v(:,j), ax)
+                        call multiply_H(ia, basis, v(:,j), ax)
                         call daxpy(basis%nloc, -d(j,1), v(1,j), 1, ax, 1)
                         d(j,2) = pdnorm2( comm, basis%nloc, ax, 1 )
                     enddo

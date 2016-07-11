@@ -37,6 +37,8 @@ contains
             endif
         endif
 
+        if (allocated(vec_out)) deallocate(vec_out)
+
         allocate(vec_out(basis_out%nloc))
         allocate(vec_all(basis%ntot))
         vec_out = 0.0D0

@@ -31,8 +31,8 @@ module ed_params
         sectors(:,:)  ! sectors(nsector,3) ne_up/ne_down/nbasis in each sectors
 
     double precision, allocatable, public :: &
-        ek_in(:,:),    &   ! ek_in(nsite,nspin)       initial impurity/bath levels
-        vk_in(:,:,:)       ! vk_in(norb,nbath,nspin)  initial impurity-bath hybridization
+        ek_in(:),    &   ! ek_in(nsite)       initial impurity/bath levels
+        vk_in(:,:)       ! vk_in(norb,nbath)  initial impurity-bath hybridization
 
     character(len=100), public :: diag_method
 
@@ -95,19 +95,16 @@ contains
             enddo
         endif
 
-        read_h_imp_params = fdf_get("DMFT.ED.HimpParamsFromFile", .false.)
+        read_h_imp_params = fdf_get("DMFT.ED.HamiltonianParamsFromFile", .false.)
 
-        allocate(ek_in(nsite,2),vk_in(norb,nbath,2))
+        allocate(ek_in(nsite),vk_in(norb,nbath))
         ek_in = 0.0d0
         vk_in = 0.0d0
         em_present = fdf_block('DMFT.ED.InitialImpurityLevels', bfdf)
         if (em_present) then
             i = 1
             do while( (i .le. norb) .and. (fdf_bline(bfdf, pline)))
-                ! @TODO initial imp/bath levels are assumed to 
-                ! be independent of spin.
-                ek_in(i,1) = fdf_breals(pline,1)
-                ek_in(i,:) = ek_in(i,1)
+                ek_in(i) = fdf_breals(pline,1)
                 i = i + 1
             enddo
         endif
@@ -116,10 +113,7 @@ contains
         if (fdf_block('DMFT.ED.InitialBathLevels', bfdf)) then
             i = 1
             do while( (i .le. nbath) .and. (fdf_bline(bfdf, pline)))
-                ! @TODO initial imp/bath levels are assumed to 
-                ! be independent of spin.
-                ek_in(Norb+i,1) = fdf_breals(pline,1)
-                ek_in(Norb+i,:) = ek_in(Norb+i,1)
+                ek_in(Norb+i) = fdf_breals(pline,1)
                 i = i + 1
             enddo
         endif
@@ -129,10 +123,7 @@ contains
             i = 1
             do while( i.le.nbath .and. (fdf_bline(bfdf, pline)))
                 do j=1,norb
-                    ! @TODO initial imp/bath levels are assumed to 
-                    ! be independent of spin.
-                    vk_in(j,i,1) = fdf_breals(pline,j)
-                    vk_in(j,i,:) = vk_in(j,i,1)
+                    vk_in(j,i) = fdf_breals(pline,j)
                 enddo
                 i = i + 1
             enddo

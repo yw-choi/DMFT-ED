@@ -20,7 +20,8 @@ module ed_diag_full
     private
 contains
 
-    subroutine diag_full(nev_calc,eigpairs)
+    subroutine diag_full(ia, nev_calc, eigpairs)
+        integer, intent(in) :: ia
         integer, intent(out) :: nev_calc
         type(eigpair_t), allocatable, intent(out) :: eigpairs(:)
 
@@ -53,7 +54,7 @@ contains
             
         allocate(H(nh,nh),ev(nh),prob(nh))
 
-        call generate_hamiltonian(basis,H)
+        call generate_hamiltonian(ia,basis,H)
 
         ! note that lapack returned eigenvalues will be in ascending order
         call lapack_diag(basis,H,ev)

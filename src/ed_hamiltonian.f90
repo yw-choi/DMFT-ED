@@ -3,9 +3,10 @@ module ed_hamiltonian
     use io_units
     use mpi
     use dmft_lattice, only: hk
-    use dmft_params, only: norb, U, Jex, mu, Up, Jp, nspin, tbham
+    use dmft_params, only: norb, U, Jex, mu, Up, Jp, nspin, tbham, na
     use utils, only: die
-    use ed_params, only: nbath, kind_basis, nsite, ek_in, vk_in, nbathperorb
+    use ed_params, only: nbath, kind_basis, nsite, ek_in, vk_in, nbathperorb, &
+                         read_h_imp_params
     use ed_basis, only: basis_t, ed_basis_get,  ed_basis_idx
     implicit none
 
@@ -13,52 +14,68 @@ module ed_hamiltonian
         generate_hamiltonian, &
         ed_hamiltonian_init,  &
         dump_hamiltonian_params,  &
-        multiply_H_OTF
+        multiply_H
 
     double precision, allocatable, public :: &
-        ek(:,:),    &   ! ek(nsite,2)         impurity/bath onsite energies
-        vk(:,:,:)       ! vk(norb,nbath,2)    impurity-bath hybridization
+        ek(:,:,:),    &   ! ek(nsite,2,na)         impurity/bath onsite energies
+        vk(:,:,:,:)       ! vk(norb,nbath,2,na)    impurity-bath hybridization
 
+    character(len=100), parameter :: FN_H_IMP_PARAMS = "h_imp.params"
     private
 contains
 
     subroutine ed_hamiltonian_init
-        integer :: ispin,iorb,i,j
-        allocate(ek(nsite,2),vk(norb,nbath,2))
-        ! input levels, hybridization
-        ek = ek_in
-        vk = vk_in
+        integer :: ispin,iorb,i,j,ia
+        logical :: found
 
-        ! if the lattice hamiltonian is given,
-        ! use the initial 
-        if (tbham==0 .or. tbham==1) then
+        allocate(ek(nsite,2,na),vk(norb,nbath,2,na))
+
+        found = .false.
+        if (read_h_imp_params) then
+            call import_h_imp_params(found)
+        endif
+
+        if (.not.found) then
+            ! input levels, hybridization
+            do ia=1,na
+                do ispin=1,nspin
+                    ek(:,ispin,ia)   = ek_in
+                    vk(:,:,ispin,ia) = vk_in
+                enddo
+                if (nspin.eq.1) then
+                    ek(:,2,ia) = ek_in
+                    vk(:,:,2,ia) = vk_in
+                endif
+            enddo
         endif
 
         if (master) then
             write(*,*) 
             write(*,*) "Initial impurity/bath levels"
-            do ispin=1,nspin
-                write(*,*) 
-                write(*,*) "Spin ",ispin
-                do i=1,norb
-                    write(*,"(1x,A,I2,F12.6)") "orb ",i,ek(i,ispin)
-                enddo
-                do i=norb+1,norb+nbath
-                    write(*,"(1x,A,I2,F12.6)") "bath ",(i-norb),ek(i,ispin)
-                enddo
-                write(*,*)
-                write(*,*) "Impurity/Bath Hybridization"
-                write(*,"(7x)", advance="no")
-                do i=1,norb
-                    write(*,"(4x,A3,I1,4x)",advance="no") "orb",i
-                enddo
-                write(*,*)
-                do i=1,nbath
-                    write(*,"(1x,a4,I2)",advance="no") "bath",i
-                    do j=1,norb
-                        write(*,"(F12.6)",advance="no") vk(j,i,ispin)
+            do ia=1,na
+                do ispin=1,nspin
+                    write(*,*) 
+                    write(*,"(a,I2,a,I2,a)") "(ia,ispin) = (",ia,",",ispin,")"
+                    do i=1,norb
+                        write(*,"(1x,A,I2,F12.6)") "orb ",i,ek(i,ispin,ia)
+                    enddo
+                    do i=norb+1,norb+nbath
+                        write(*,"(1x,A,I2,F12.6)") "bath ",(i-norb),ek(i,ispin,ia)
                     enddo
                     write(*,*)
+                    write(*,*) "Impurity/Bath Hybridization"
+                    write(*,"(7x)", advance="no")
+                    do i=1,norb
+                        write(*,"(4x,A3,I1,4x)",advance="no") "orb",i
+                    enddo
+                    write(*,*)
+                    do i=1,nbath
+                        write(*,"(1x,a4,I2)",advance="no") "bath",i
+                        do j=1,norb
+                            write(*,"(F12.6)",advance="no") vk(j,i,ispin,ia)
+                        enddo
+                        write(*,*)
+                    enddo
                 enddo
             enddo
             write(*,*)
@@ -67,7 +84,8 @@ contains
     end subroutine ed_hamiltonian_init
 
     ! generates the Hamiltonian for the sector in basis
-    subroutine generate_hamiltonian(basis, H)
+    subroutine generate_hamiltonian(ia, basis, H)
+        integer, intent(in) :: ia
         type(basis_t), intent(in) :: basis
         double precision, intent(out) :: H(basis%nloc,basis%ntot)
 
@@ -105,8 +123,8 @@ contains
                 ! 1. onsite energies up/dn, 
                 ! 2. intra orbital density-density
                 ! ==================================
-                H(j,j) = H(j,j) + (ek(iorb,1)-mu)*ni(1) &
-                            + (ek(iorb,2)-mu)*ni(2) &
+                H(j,j) = H(j,j) + (ek(iorb,1,ia)-mu)*ni(1) &
+                            + (ek(iorb,2,ia)-mu)*ni(2) &
                             + U*ni(1)*ni(2)
                 ! ==================================
 
@@ -151,7 +169,7 @@ contains
 
                             i = ed_basis_idx(basis, basis_i)
 
-                            H(i,j) = H(i,j) + sgntot*vk(iorb,ibath,ispin) 
+                            H(i,j) = H(i,j) + sgntot*vk(iorb,ibath,ispin,ia) 
 
                         else if (ni(ispin).ne.0 .and. &
                                  .not.BTEST(basis_j,jsite-1)) then
@@ -164,7 +182,7 @@ contains
 
                             i = ed_basis_idx(basis, basis_i)
 
-                            H(i,j) = H(i,j) + sgntot*vk(iorb,ibath,ispin) 
+                            H(i,j) = H(i,j) + sgntot*vk(iorb,ibath,ispin,ia) 
 
                         endif
                     enddo
@@ -240,10 +258,10 @@ contains
             ! ==================================
             do ibath=1,nbath
                 if (BTEST(basis_j,norb+ibath-1)) then
-                    H(j,j)=H(j,j)+ek(norb+ibath,1)
+                    H(j,j)=H(j,j)+ek(norb+ibath,1,ia)
                 endif
                 if (BTEST(basis_j,nsite+norb+ibath-1)) then
-                    H(j,j)=H(j,j)+ek(norb+ibath,nspin)
+                    H(j,j)=H(j,j)+ek(norb+ibath,nspin,ia)
                 endif
             enddo
         enddo jloop
@@ -252,7 +270,8 @@ contains
     
     ! y = H*x
     ! matrix element is on-the-fly generated
-    subroutine multiply_H_OTF(basis, x, y)
+    subroutine multiply_H(ia, basis, x, y)
+        integer, intent(in) :: ia
         type(basis_t), intent(in) :: basis
         double precision, intent(in) :: x(basis%nloc)
         double precision, intent(out) :: y(basis%nloc)
@@ -290,7 +309,7 @@ contains
                 ! 2. intra orbital density-density
                 ! ==================================
                 rowsum = rowsum + &
-                        ((ek(iorb,1)-mu)*ni(1) + (ek(iorb,2)-mu)*ni(2) &
+                        ((ek(iorb,1,ia)-mu)*ni(1) + (ek(iorb,2,ia)-mu)*ni(2) &
                             + U*ni(1)*ni(2))*x(b)
 
                 ! ==================================
@@ -329,14 +348,16 @@ contains
                             ket = IBSET(IBCLR(bra,jsite-1), isite-1)
                             a = ed_basis_idx(basis, ket)
                             rowsum = rowsum &
-                               +sgn(bra,isite,jsite)*vk(iorb,jbath,ispin)*x_all(a)
+                               +sgn(bra,isite,jsite)*vk(iorb,jbath,ispin,ia)&
+                               *x_all(a)
 
                         else if (ni(ispin).ne.0 .and. .not.jb) then
                             ! b^+_{ibath,ispin} c_{iorb,ispin}
                             ket = IBSET(IBCLR(bra,isite-1),jsite-1)
                             a = ed_basis_idx(basis, ket)
                             rowsum = rowsum &
-                               -sgn(bra,isite,jsite)*vk(iorb,jbath,ispin)*x_all(a)
+                               -sgn(bra,isite,jsite)*vk(iorb,jbath,ispin,ia)&
+                               *x_all(a)
                         endif
                     enddo
                 enddo
@@ -397,17 +418,17 @@ contains
             ! ==================================
             do jbath=1,nbath
                 if (BTEST(bra,norb+jbath-1)) then
-                    rowsum = rowsum + ek(norb+jbath,1)*x(b)
+                    rowsum = rowsum + ek(norb+jbath,1,ia)*x(b)
                 endif
                 if (BTEST(bra,nsite+norb+jbath-1)) then
-                    rowsum = rowsum + ek(norb+jbath,nspin)*x(b)
+                    rowsum = rowsum + ek(norb+jbath,nspin,ia)*x(b)
                 endif
             enddo
 
             y(b) = rowsum
         enddo bloop
 
-    end subroutine multiply_H_OTF
+    end subroutine multiply_H
 
     ! (-1)^{ sum_{k=i}^{j-1} n_k }
     ! it is assumed that i<j
@@ -439,27 +460,73 @@ contains
     end function sgn2
 
     subroutine dump_hamiltonian_params
-        integer :: ispin,i,j
+        integer :: ia,iorb,ibath,ispin,i
 
         if (master) then
-            open(unit=IO_H_PARAMS,file="h_imp.params",status="replace")
-            ! write(IO_H_PARAMS,*) na,nspin,norb,nbath
+            open(unit=IO_H_PARAMS,file=FN_H_IMP_PARAMS,status="replace")
+            ! na nspin norb nbath
+            write(IO_H_PARAMS,*) na,2,norb,nbath
 
-            ! do ispin=1,nspin
-            !     do i=1,nsite
-            !         write(IO_H_PARAMS,*) ek(i)
-            !     enddo 
+            do ia=1,na
+                do ispin=1,2
+                    do i=1,nsite
+                        write(IO_H_PARAMS,*) ek(i,ispin,ia)
+                    enddo 
 
-            !     do i=1,norb
-            !         do j=1,nbath
-            !             write(IO_H_PARAMS,*) vk(i,j)
-            !         enddo
-            !     enddo
-            ! enddo
-
+                    do iorb=1,norb
+                        do ibath=1,nbath
+                            write(IO_H_PARAMS,*) vk(iorb,ibath,ispin,ia)
+                        enddo
+                    enddo
+                enddo
+            enddo
 
             close(IO_H_PARAMS)
         endif
 
     end subroutine dump_hamiltonian_params
+
+    subroutine import_h_imp_params(found)
+        logical, intent(out) :: found
+
+        integer :: na2, dummy, norb2, nbath2
+        integer :: ia,ibath,iorb,ispin,i
+
+        if (master) then
+            inquire(file=FN_H_IMP_PARAMS, exist=found)
+            if (.not.found) then
+                write(*,*) "warning: h_imp.params not found."
+                return
+            endif
+
+            write(*,*) "Reading impurity Hamiltonian parameters from file."
+
+            open(unit=IO_H_PARAMS,file=FN_H_IMP_PARAMS,status="old")
+            ! na nspin norb nbath
+            read(IO_H_PARAMS,*) na2,dummy,norb2,nbath2
+
+            if (na2/=na.or.dummy/=2.or.norb2/=norb.or.nbath2/=nbath) then
+                call die("import_h_imp_params", "dimension mismatch.")
+                return
+            endif
+
+            do ia=1,na
+                do ispin=1,2
+                    do i=1,nsite
+                        read(IO_H_PARAMS,*) ek(i,ispin,ia)
+                    enddo 
+
+                    do iorb=1,norb
+                        do ibath=1,nbath
+                            read(IO_H_PARAMS,*) vk(iorb,ibath,ispin,ia)
+                        enddo
+                    enddo
+                enddo
+            enddo
+            close(IO_H_PARAMS)
+        endif
+
+        call mpi_bcast(ek, nsite*2*na, mpi_double_precision, 0, comm, mpierr)
+        call mpi_bcast(vk, norb*nbath*2*na, mpi_double_precision, 0, comm, mpierr)
+    end subroutine import_h_imp_params
 end module ed_hamiltonian

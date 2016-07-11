@@ -1,8 +1,8 @@
-module lanczos_otf
+module lanczos
 
     use numeric_utils, only: mpi_dot_product, mpi_norm
     use ed_basis, only: basis_t
-    use ed_hamiltonian, only: multiply_H_OTF
+    use ed_hamiltonian, only: multiply_H
     implicit none
 
 contains
@@ -17,7 +17,8 @@ contains
     !
     ! uses an external routine matmult that handles the matrix-vector product.
     ! refer the interface declared inside the subroutine.
-    subroutine lanczos_iteration_otf(basis, vec, nstep, a, b)
+    subroutine lanczos_iteration(ia, basis, vec, nstep, a, b)
+        integer, intent(in) :: ia
         type(basis_t), intent(in) :: basis
         integer, intent(in) :: &
             nstep         ! maximum number of iteration steps
@@ -50,7 +51,7 @@ contains
         ! w(:)   = w_j
         lanczos_loop: do j=1,nstep-1
             ! w_j = H*v_j
-            call multiply_H_OTF( basis, v(:,2), w(:) )
+            call multiply_H( ia, basis, v(:,2), w(:) )
 
             ! a_j = dot(w_j,v_j)
             a(j) = mpi_dot_product(w(:), v(:,2), basis%nloc)
@@ -73,9 +74,9 @@ contains
         enddo lanczos_loop
 
         ! handles the last step
-        call multiply_H_OTF( basis, v(:,2), w(:) )
+        call multiply_H(ia, basis, v(:,2), w(:) )
         a(nstep) = mpi_dot_product(w(:),v(:,2),basis%nloc)
 
-    end subroutine lanczos_iteration_otf
+    end subroutine lanczos_iteration
 
-end module lanczos_otf
+end module lanczos

@@ -81,7 +81,7 @@ contains
         call apply_c( basis, eigpair%vec, 1, iorb, ispin, basis_out, v )
 
         allocate(H(basis_out%nloc,basis_out%ntot))
-        call generate_hamiltonian(basis_out, H)
+        call generate_hamiltonian(ia, basis_out, H)
         call lanczos_iteration_fd( basis_out%nloc, H, v, nstep, &
                                 ap(:,iev,iorb,ispin,ia), bp(:,iev,iorb,ispin,ia) )
 
@@ -114,7 +114,7 @@ contains
         call apply_c( basis, eigpair%vec, 2, iorb, ispin, basis_out, v )
 
         allocate(H(basis_out%nloc,basis_out%ntot))
-        call generate_hamiltonian(basis_out, H)
+        call generate_hamiltonian(ia, basis_out, H)
         call lanczos_iteration_fd( basis_out%nloc, H, v, nstep, &
                                 an(:,iev,iorb,ispin,ia), bn(:,iev,iorb,ispin,ia) )
         
