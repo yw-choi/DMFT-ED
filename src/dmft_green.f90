@@ -27,10 +27,13 @@ module dmft_green
         Sigma(:,:,:,:)       ! Sigma(nwloc,norb,nspin,na)
                              ! self energy
 
+    character(len=100), parameter :: FN_GR_SAVE = "green.save"
+
     private 
 contains
 
     subroutine dmft_green_init
+        logical :: found
         allocate(G_prev(nwloc,norb,nspin,na))
         allocate(G(nwloc,norb,nspin,na))
         allocate(G0(nwloc,norb,nspin,na))
@@ -41,11 +44,20 @@ contains
         G0     = cmplx(0.0d0,0.0d0)
         Sigma  = cmplx(0.0d0,0.0d0)
 
-        ! @TODO read the initial data from file when requested
-
-        ! Setting up the initial Weiss field
-        call update_local_green_ftn
-        call update_weiss_ftn
+        found = .false.
+        if (read_gf_from_file) then
+            call import_green_ftn(found)
+        endif
+        
+        if (.not.found) then
+            if (master) then
+                write(*,*) "Initial Green's function from uncorrelated lattice."
+            endif
+            ! initial green function and weiss field
+            ! from uncorrelated lattice green function
+            call update_local_green_ftn
+            call update_weiss_ftn
+        end if
 
     end subroutine dmft_green_init
 
@@ -126,17 +138,26 @@ contains
         ! dump current green ftn, weiss ftn, self energy
         integer :: iw, iorb, ia, ispin
         character(len=100) :: fn
-        double precision :: zq
+        double precision :: zq, omega_all(nw)
         double complex :: G_all(nw), G0_all(nw), Sigma_all(nw)
 
         if (master) then
-            open(unit=IO_GR_DATA, file="green.dat", status="replace")
+            open(unit=IO_GR_DATA, file=FN_GR_SAVE, status="replace")
             write(IO_GR_DATA, *) na,nspin,norb,nw
         endif
 
         do ia=1,na
             do ispin=1,nspin
                 do iorb=1,norb
+                    call mpi_allgatherv(omega(:), &
+                                        nwloc, &
+                                        mpi_double_precision, &
+                                        omega_all, &
+                                        nw_procs, &
+                                        nw_offsets, &
+                                        mpi_double_precision, &
+                                        comm, &
+                                        mpierr)
                     call mpi_allgatherv(G(:,iorb,ispin,ia), &
                                         nwloc, &
                                         mpi_double_precision, &
@@ -168,7 +189,7 @@ contains
                     if (master) then
                         write(IO_GR_DATA,*) ia, ispin, iorb
                         do iw=1,nw
-                            write(IO_GR_DATA,"(7F16.8)") omega(iw), &
+                            write(IO_GR_DATA,"(7E20.10)") omega_all(iw), &
                                 real(G_all(iw)), &
                                 aimag(G_all(iw)), &
                                 real(G0_all(iw)), &
@@ -255,4 +276,75 @@ contains
 
     end subroutine green_bethe
 
+    subroutine import_green_ftn(found)
+        use utils, only: die
+        logical :: found
+        integer :: iw,na2,nspin2,norb2,nw2,&
+                   ia2,ispin2,iorb2,iorb,ispin,ia
+        double complex :: G_all(nw), G0_all(nw), Sigma_all(nw)
+        double precision :: w, reg,img, reg0,img0, resig,imsig
+
+        if (master) then
+            inquire (file=FN_GR_SAVE, exist=found)
+            if (.not.found) then
+                write(*,*) "warning: Green's function save file not found."
+                return
+            endif
+            open(unit=IO_GR_DATA, file=FN_GR_SAVE, status="old")
+            read(IO_GR_DATA,*) na2,nspin2,norb2,nw2
+
+            write(*,*) "Found Green's function save file."
+            write(*,*) "Dimensions : "
+            write(*,"(3x,a,I5)") "na    = ", na2
+            write(*,"(3x,a,I5)") "nspin = ", nspin2
+            write(*,"(3x,a,I5)") "norb  = ", norb2
+            write(*,"(3x,a,I5)") "nw    = ", nw2
+
+            ! dimension matching
+            ! @TODO reject different beta ?
+            if (na2/=na .or. nspin2/=nspin .or. norb2/=norb .or. &
+                nw2/=nw) then
+                call die("import_green_ftn", &
+                    "Dimension of the saved Green's function does not match")
+                return
+            endif
+        endif
+
+        do ia=1,na
+            do ispin=1,nspin
+                do iorb=1,norb
+                    if (master) then
+                        read(IO_GR_DATA, *) ia2, ispin2, iorb2
+
+                        do iw=1,nw
+                            read(IO_GR_DATA,"(7E20.10)") &
+                                w, reg, img, reg0, img0, resig, imsig
+
+                            G_all(iw) = cmplx(reg,img)
+                            G0_all(iw) = cmplx(reg0,img0)
+                            Sigma_all(iw) = cmplx(resig,imsig)
+                        enddo
+                    endif
+
+                    call mpi_scatterv(G_all, nw_procs, nw_offsets, &
+                        mpi_double_precision, G(:,iorb,ispin,ia), nwloc, &
+                        mpi_double_precision, 0, comm, mpierr)
+
+                    call mpi_scatterv(G0_all, nw_procs, nw_offsets, &
+                        mpi_double_precision, G0(:,iorb,ispin,ia), nwloc, &
+                        mpi_double_precision, 0, comm, mpierr)
+
+                    call mpi_scatterv(Sigma_all, nw_procs, nw_offsets, &
+                        mpi_double_precision, Sigma(:,iorb,ispin,ia), nwloc, &
+                        mpi_double_precision, 0, comm, mpierr)
+
+                enddo
+            enddo
+        enddo
+
+        if (master) then
+            write(*,*) "successfully imported ", FN_GR_SAVE
+            close(IO_GR_DATA)
+        endif
+    end subroutine import_green_ftn
 end module dmft_green

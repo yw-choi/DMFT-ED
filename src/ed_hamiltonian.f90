@@ -2,8 +2,8 @@ module ed_hamiltonian
 
     use io_units
     use mpi
-    use dmft_lattice, only: tbham, hk
-    use dmft_params, only: norb, U, Jex, mu, Up, Jp, nspin
+    use dmft_lattice, only: hk
+    use dmft_params, only: norb, U, Jex, mu, Up, Jp, nspin, tbham
     use utils, only: die
     use ed_params, only: nbath, kind_basis, nsite, ek_in, vk_in, nbathperorb
     use ed_basis, only: basis_t, ed_basis_get,  ed_basis_idx

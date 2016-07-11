@@ -69,13 +69,15 @@ contains
     ! @TODO need to be refactored to more logical structure
     subroutine cluster_self_energy(Sigma)
         double complex, intent(out) :: Sigma(nwloc,norb,nspin)
+        double complex :: sig
         integer :: iw,iorb,ispin
+
         do ispin=1,nspin
             do iorb=1,norb
                 do iw=1,nwloc
-                    Sigma(iw,iorb,ispin)=cmplx(0.0d0,omega(iw))+mu &
+                    Sigma(iw,iorb,ispin) = cmplx(0.0d0,omega(iw))+mu &
                         -ek(iorb,ispin)-delta_cl(iw,iorb,ispin)&
-                        -1/G_cl(iw,iorb,ispin)
+                        -1.d0/G_cl(iw,iorb,ispin)
                 enddo
             enddo
         enddo

@@ -29,6 +29,9 @@ module dmft_params
         wrmin,        & ! real frequency min
         wrmax           ! real frequency max
 
+    logical :: &
+        read_gf_from_file
+
 contains
 
     ! Read general DMFT parameters independent of solver.
@@ -72,7 +75,7 @@ contains
         Nloop = fdf_get("DMFT.MaxIterations", 100)
         scf_tol = fdf_get("DMFT.ScfTolerance", 1d-4)
 
-        nw = fdf_get("DMFT.Matsubara.Nw",2000)
+        nw = fdf_get("DMFT.Matsubara.Nw",1000)
         nwreal = fdf_get("DMFT.Real.Nw",4000)
         wrmin = fdf_get("DMFT.Real.wmin",-3.d0)
         wrmax = fdf_get("DMFT.Real.wmax", 3.d0)
@@ -81,6 +84,8 @@ contains
         broadening = fdf_get("DMFT.SpectralBroadening", 0.02D0)
 
         tbham = fdf_get("DMFT.TBHamiltonian", 1)
+
+        read_gf_from_file = fdf_get("DMFT.GreenFtnFromFile", .false.)
 
         if (master) then
             write(msg,*) "Number of atoms in a unit cell"

@@ -20,7 +20,7 @@ program main
         write(6,*)
         write(6,*) "Multi-orbital DMFT"
         write(6,*) "Number of processors = ", nprocs
-        write(6,*) "Input file = ", input_file
+        write(6,"(1x,A,A)") "Input file = ", trim(input_file)
         write(6,*)
         write(6,"(a)") repeat("=",80)
     endif
@@ -39,7 +39,7 @@ program main
     if (master) then
         write(6,"(a)") repeat("=",80)
         write(6,*)
-        call print_elapsed_time("Total Running Time", t1_run, t2_run)
+        call print_elapsed_time(" Total Running Time", t1_run, t2_run)
         write(6,*)
         write(6,*) "End of run."
         write(6,*)
