@@ -27,7 +27,8 @@ contains
         type(eigpair_t), allocatable, intent(out) :: eigpairs(:)
 
         type(basis_t) :: basis
-        integer :: ne_up, ne_down, nh, nloc, isector, iev, ind(nev*nsector), i
+        integer :: ne_up, ne_down, nh, nloc, isector, iev, ind(nev*nsector),i, &
+                   multcount
         double precision :: eigval(nev*nsector), prob(nev*nsector)
         type(eigpair_t) :: eigpairs_all(nev, nsector)
 
@@ -50,10 +51,12 @@ contains
             call generate_basis(ne_up, ne_down, basis)
 
             t1_diag_loop = mpi_wtime(mpierr)    
-            call diagonalization(ia, isector, basis, eigpairs_all(:, isector))
+            call diagonalization(ia, isector, basis, eigpairs_all(:, isector),&
+                                multcount)
             t2_diag_loop = mpi_wtime(mpierr)    
 
             if (master) then
+                write(*,*) "Matrix-vector multiplication count = ", multcount
                 call print_elapsed_time("    diagonalization time", &
                                         t1_diag_loop,t2_diag_loop)
             endif
@@ -107,19 +110,19 @@ contains
 
     end subroutine diag_arpack
 
-    subroutine diagonalization(ia, isector, basis, eig)
-        include 'debug.h'
+    subroutine diagonalization(ia, isector, basis, eig, multcount)
         integer, intent(in) :: isector, ia
         type(basis_t), intent(in) :: basis
         type(eigpair_t), intent(out) :: eig(nev)
+        integer, intent(out) :: multcount
 
         character, parameter :: bmat = 'I'
         character(len=2), parameter :: which = 'SA'
 
-        double precision :: v(basis%nloc, 2*nev), workd(3*basis%nloc), &
-                            resid(basis%nloc)
-        double precision, allocatable :: ax(:)
-
+        ! double precision :: v(basis%nloc, 2*nev), workd(3*basis%nloc), &
+        !                     resid(basis%nloc)
+        double precision, allocatable :: ax(:), v(:,:), workd(:), resid(:), &
+                                         x_all(:)
         double precision :: workl(2*nev*(2*nev+8)), d(2*nev,2), sigma, tol
 
         logical :: select(2*nev)
@@ -131,9 +134,10 @@ contains
 
         integer :: i, j, ierr
 
-        ndigit = -3
-        logfil = 6
-        msaupd = 1
+        allocate(v(basis%nloc,2*nev))
+        allocate(workd(3*basis%nloc))
+        allocate(resid(basis%nloc))
+        allocate(x_all(basis%ntot))
 
         ldv = basis%nloc
         ncv = 2*nev
@@ -151,11 +155,14 @@ contains
 
         info = 0
         ido = 0
+        multcount = 0
         do
             call pdsaupd( comm, ido, bmat, basis%nloc, which, nev, tol, resid, &
                 ncv, v, ldv, iparam, ipntr, workd, workl, lworkl, info )
             if (ido .eq. -1 .or. ido .eq. 1) then
-                call multiply_H(ia, basis, workd(ipntr(1)), workd(ipntr(2)))
+                call multiply_H(ia, basis, workd(ipntr(1)), workd(ipntr(2)), &
+                                x_all)
+                multcount = multcount+1
             else
                 exit
             endif
@@ -178,7 +185,7 @@ contains
                 if (print_arpack_stat) then
                     allocate(ax(basis%nloc))
                     do j=1, nconv
-                        call multiply_H(ia, basis, v(:,j), ax)
+                        call multiply_H(ia, basis, v(:,j), ax, x_all)
                         call daxpy(basis%nloc, -d(j,1), v(1,j), 1, ax, 1)
                         d(j,2) = pdnorm2( comm, basis%nloc, ax, 1 )
                     enddo
@@ -197,5 +204,6 @@ contains
             eig(i)%vec    = v(:,i)
             eig(i)%nloc   = basis%nloc
         enddo
+        deallocate(v,resid,workd,x_all)
     end subroutine diagonalization
 end module ed_diag_arpack

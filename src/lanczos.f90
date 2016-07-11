@@ -30,10 +30,11 @@ contains
             b(nstep)    ! off-diagonal matrix element in lanczos basis
 
         ! temporary lanczos vectors
-        double precision :: v(basis%nloc,2), w(basis%nloc)
+        double precision, allocatable :: v(:,:), w(:), x_all(:)
         double precision :: norm_v
         
         integer :: j, ierr
+        allocate(v(basis%nloc,2),w(basis%nloc),x_all(basis%ntot))
         
         ! Lanczos steps
         ! ref: https://en.wikipedia.org/wiki/Lanczos_algorithm#Iteration 
@@ -51,7 +52,7 @@ contains
         ! w(:)   = w_j
         lanczos_loop: do j=1,nstep-1
             ! w_j = H*v_j
-            call multiply_H( ia, basis, v(:,2), w(:) )
+            call multiply_H( ia, basis, v(:,2), w(:), x_all(:) )
 
             ! a_j = dot(w_j,v_j)
             a(j) = mpi_dot_product(w(:), v(:,2), basis%nloc)
@@ -74,9 +75,10 @@ contains
         enddo lanczos_loop
 
         ! handles the last step
-        call multiply_H(ia, basis, v(:,2), w(:) )
+        call multiply_H(ia, basis, v(:,2), w(:), x_all(:) )
         a(nstep) = mpi_dot_product(w(:),v(:,2),basis%nloc)
 
+        deallocate(v,w,x_all)
     end subroutine lanczos_iteration
 
 end module lanczos

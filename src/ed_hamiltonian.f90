@@ -270,13 +270,14 @@ contains
     
     ! y = H*x
     ! matrix element is on-the-fly generated
-    subroutine multiply_H(ia, basis, x, y)
+    subroutine multiply_H(ia, basis, x, y, x_all)
         integer, intent(in) :: ia
         type(basis_t), intent(in) :: basis
         double precision, intent(in) :: x(basis%nloc)
+        double precision, intent(out) :: x_all(basis%ntot)
         double precision, intent(out) :: y(basis%nloc)
 
-        double precision :: rowsum, x_all(basis%ntot)
+        double precision :: rowsum
         integer(kind=kind_basis) :: bra,ket,a,b
         integer :: iorb, jorb, ispin, isite, jsite, j, jbath
         integer :: ni(2),nj(2),imin,imax

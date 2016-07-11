@@ -117,10 +117,10 @@ contains
 
                 g_coeffs(iorb,ispin,ia)%nstep = nstep
                 g_coeffs(iorb,ispin,ia)%nev   = nev_calc
-                g_coeffs(iorb,ispin,ia)%ap    = ap
-                g_coeffs(iorb,ispin,ia)%bp    = bp
-                g_coeffs(iorb,ispin,ia)%an    = an
-                g_coeffs(iorb,ispin,ia)%bn    = bn
+                g_coeffs(iorb,ispin,ia)%ap(:,1:nev_calc) = ap
+                g_coeffs(iorb,ispin,ia)%bp(:,1:nev_calc) = bp
+                g_coeffs(iorb,ispin,ia)%an(:,1:nev_calc) = an
+                g_coeffs(iorb,ispin,ia)%bn(:,1:nev_calc) = bn
 
             enddo
         enddo
