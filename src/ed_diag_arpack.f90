@@ -103,12 +103,12 @@ contains
         enddo
 
         ! and free the rest
-        do i=nev_calc+1,nev*nsector
-            isector = (ind(i)-1)/nev+1
-            iev = mod(ind(i)-1,nev)+1
-            call de_alloc(eigpairs_all(iev,isector)%vec, &
-                "ed_diag_arpack", "eigvec_all")
-        enddo
+        ! do i=nev_calc+1,nev*nsector
+        !     isector = (ind(i)-1)/nev+1
+        !     iev = mod(ind(i)-1,nev)+1
+        !     call de_alloc(eigpairs_all(iev,isector)%vec, &
+        !         "ed_diag_arpack", "eigvec_all")
+        ! enddo
 
         if (master) then
             write(6,*)
@@ -228,7 +228,7 @@ contains
 
             nullify(eig(i)%vec)
             call re_alloc(eig(i)%vec, 1, basis%nloc, &
-                            'ed_diag_arpack', 'eigvec_all')
+                            "ed_diag_arpack", "eigvec_all")
             eig(i)%vec    = v(:,i)
             eig(i)%nloc   = basis%nloc
         enddo
