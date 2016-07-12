@@ -3,12 +3,13 @@ module ed_green
     use dmft_grid, only: nwloc, omega
     use ed_params, only: nbath, nsite, nsector, &
                          nstep, sectors, nev
-    use ed_basis, only: basis_t, generate_basis
+    use ed_basis, only: basis_t, generate_basis, dealloc_basis
     use lanczos, only: lanczos_iteration
     use ed_operator, only: apply_c
     use numeric_utils, only: mpi_norm, continued_fraction_m, &
                              continued_fraction_p
     use ed_eigpair, only: eigpair_t, nev_calc, eigpairs
+    use alloc, only: re_alloc, de_alloc
 
     implicit none
 
@@ -55,7 +56,7 @@ contains
         ! local variables
         integer :: iev, ispin, iorb, isector, ne_up, ne_down, iw, i
         type(basis_t) :: basis, basis_out
-        double precision, allocatable :: v(:)
+        double precision, pointer :: vec_out(:), vec_all(:)
         double precision :: ap(nstep,nev_calc), bp(nstep,nev_calc), &
                             an(nstep,nev_calc), bn(nstep,nev_calc)
         double complex :: z, gr
@@ -74,16 +75,28 @@ contains
 
                     call generate_basis(ne_up, ne_down, basis)
 
+                    call re_alloc(vec_all, 1, basis%ntot, 'ed_green', 'vec_all')
+
                     ! G^+
                     ! 1. c^+|iev>
-                    call apply_c(basis, eigpairs(iev)%vec, 1, &
-                        iorb, ispin, basis_out, v)
+                    if (ispin == 1) then
+                        call generate_basis( basis%ne_up+1, basis%ne_down, &
+                                             basis_out)
+                    else
+                        call generate_basis( basis%ne_up, basis%ne_down+1, &
+                                             basis_out)
+                    endif
+
+                    call re_alloc(vec_out, 1, basis_out%nloc, 'ed_green', 'vec_out')
+
+                    call apply_c(basis, eigpairs(iev)%vec, vec_all, 1, &
+                        iorb, ispin, basis_out, vec_out)
 
                     ! 2. lanczos coefficients
-                    call lanczos_iteration(ia, basis_out, v, nstep, &
+                    call lanczos_iteration(ia, basis_out, vec_out, nstep, &
                                                 ap(:,iev), bp(:,iev))
 
-                    bp(1,iev) = mpi_norm(v, basis_out%nloc)
+                    bp(1,iev) = mpi_norm(vec_out, basis_out%nloc)
 
                     ! 3. green function as a continued fraction
                     do iw=1,nwloc
@@ -96,13 +109,23 @@ contains
 
                     ! G^-
                     ! 1. c^-_{iorb,ispin} | eigvec >
-                    call apply_c( basis, eigpairs(iev)%vec, 2, &
-                        iorb, ispin, basis_out, v )
+                    if (ispin == 1) then
+                        call generate_basis( basis%ne_up-1, basis%ne_down, &
+                                             basis_out)
+                    else
+                        call generate_basis( basis%ne_up, basis%ne_down-1, &
+                                             basis_out)
+                    endif
+
+                    call re_alloc(vec_out, 1, basis_out%nloc, 'ed_green', 'vec_out')
+
+                    call apply_c( basis, eigpairs(iev)%vec, vec_all, 2, &
+                        iorb, ispin, basis_out, vec_out )
 
                     ! 2. lanczos coefficients
-                    call lanczos_iteration(ia, basis_out, v, nstep, &
+                    call lanczos_iteration(ia, basis_out, vec_out, nstep, &
                                                an(:,iev), bn(:,iev))
-                    bn(1,iev) = mpi_norm(v, basis_out%nloc)
+                    bn(1,iev) = mpi_norm(vec_out, basis_out%nloc)
 
                     ! 3. green function as a continued fraction
                     do iw = 1,nwloc
@@ -124,6 +147,11 @@ contains
 
             enddo
         enddo
+
+        call dealloc_basis(basis_out)
+        call dealloc_basis(basis)
+        call de_alloc(vec_out, 'ed_green', 'vec_out')
+        call de_alloc(vec_all, 'ed_green', 'vec_all')
 
     end subroutine cluster_green_ftn
 

@@ -18,7 +18,7 @@ module dmft
 
     use utils, only: die
     use timer, only: t1_loop, t2_loop, print_elapsed_time, t1_run, t2_run
-    use alloc, only: alloc_report, re_alloc, de_alloc
+    use alloc, only: alloc_report, re_alloc, de_alloc, alloc_default
     use fdf
 
     implicit none
@@ -66,6 +66,8 @@ contains
         call alloc_report( level=level, file='alloc_report', &
                            threshold=threshold, &
                            printNow=.false. )
+
+        call alloc_default(copy=.false., shrink=.true.)
 
         ! Read general DMFT parameters independent of solver.
         call dmft_params_read
