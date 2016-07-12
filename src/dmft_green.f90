@@ -5,6 +5,7 @@ module dmft_green
     use dmft_grid
     use io_units
     use numeric_utils, only: cinv
+    use alloc, only: re_alloc
 
     implicit none
 
@@ -14,7 +15,7 @@ module dmft_green
         update_weiss_ftn, &
         dump_green
 
-    double complex, allocatable, public :: &
+    double complex, pointer, public :: &
         G_prev(:,:,:,:),   & ! G_prev(nwloc,norb,nspin,na)
                              ! local Green's function of the previous step
 
@@ -34,10 +35,15 @@ contains
 
     subroutine dmft_green_init
         logical :: found
-        allocate(G_prev(nwloc,norb,nspin,na))
-        allocate(G(nwloc,norb,nspin,na))
-        allocate(G0(nwloc,norb,nspin,na))
-        allocate(Sigma(nwloc,norb,nspin,na))
+        nullify(G_prev, G, G0, Sigma)
+        call re_alloc( G_prev, 1, nwloc, 1, norb, 1, nspin, 1, na, &
+                       'dmft_green', 'init')
+        call re_alloc( G, 1, nwloc, 1, norb, 1, nspin, 1, na, &
+                       'dmft_green', 'init')
+        call re_alloc( G0, 1, nwloc, 1, norb, 1, nspin, 1, na, &
+                       'dmft_green', 'init')
+        call re_alloc( Sigma, 1, nwloc, 1, norb, 1, nspin, 1, na, &
+                       'dmft_green', 'init')
 
         G_prev = cmplx(0.0d0,0.0d0)
         G      = cmplx(0.0d0,0.0d0)

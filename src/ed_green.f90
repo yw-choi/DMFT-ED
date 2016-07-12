@@ -2,12 +2,13 @@ module ed_green
     use dmft_params, only: norb, nspin, na
     use dmft_grid, only: nwloc, omega
     use ed_params, only: nbath, nsite, nsector, &
-                         nstep, sectors, nev, eigpair_t
+                         nstep, sectors, nev
     use ed_basis, only: basis_t, generate_basis
     use lanczos, only: lanczos_iteration
     use ed_operator, only: apply_c
     use numeric_utils, only: mpi_norm, continued_fraction_m, &
                              continued_fraction_p
+    use ed_eigpair, only: eigpair_t, nev_calc, eigpairs
 
     implicit none
 
@@ -48,9 +49,8 @@ contains
 
     ! calculates the interacting cluster Green's function 
     ! using the Lanczos method.
-    subroutine cluster_green_ftn(ia_in,nev_calc,eigpairs)
-        integer, intent(in) :: ia_in,nev_calc
-        type(eigpair_t), intent(in) :: eigpairs(nev_calc)
+    subroutine cluster_green_ftn(ia_in)
+        integer, intent(in) :: ia_in
         
         ! local variables
         integer :: iev, ispin, iorb, isector, ne_up, ne_down, iw, i

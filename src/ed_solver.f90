@@ -5,23 +5,17 @@ module ed_solver
     use dmft_grid, only: nwloc, omega
     use ed_projection, only: project_to_impurity_model
     use ed_params, only: ed_read_params, nbath, nsite, nsector, &
-                         nev, nstep, sectors, ek_in, vk_in, diag_method, &
-                         eigpair_t
+                         nev, nstep, sectors, ek_in, vk_in, diag_method
 
     use ed_hamiltonian, only: ed_hamiltonian_init, ek,vk, dump_hamiltonian_params
     use ed_green, only: ed_green_init, cluster_green_ftn, G_cl
 
-    use ed_diag_full, only: diag_full
+    ! use ed_diag_full, only: diag_full
     use ed_diag_arpack, only: diag_arpack
     use timer, only: t1_green_loop, t2_green_loop, print_elapsed_time
+    use ed_eigpair, only: allocate_eigpairs
 
     implicit none
-
-    ! number of eigenvalues that has prob>PROB_THRESHOLD
-    ! and corresponding eigenvalues & eigenvectors
-    integer :: nev_calc
-
-    type(eigpair_t), allocatable :: eigpairs(:)
 
 contains
 
@@ -29,6 +23,8 @@ contains
         call ed_read_params
         call ed_hamiltonian_init
         call ed_green_init
+
+        call allocate_eigpairs(nev)
     end subroutine ed_init
 
     subroutine ed_solve(iloop,ia,G0,Sigma)
@@ -48,16 +44,16 @@ contains
         ! Diagonalize the AIM Hamiltonian characterized by ek,vk and
         ! return the eigpairs.
         select case(diag_method)
-            case ("full")
-                call diag_full(ia,nev_calc,eigpairs)
+            ! case ("full")
+            !     call diag_full(ia)
             case ("arpack")
-                call diag_arpack(ia,nev_calc,eigpairs)
+                call diag_arpack(ia)
             case default
-                call die("ed_solve", "Diagonalization method is not implemented.")
+                call die("ed_solve", "Diagonalization method not implemented.")
         end select
 
         t1_green_loop = mpi_wtime(mpierr)
-        call cluster_green_ftn(ia,nev_calc,eigpairs)
+        call cluster_green_ftn(ia)
         t2_green_loop = mpi_wtime(mpierr)
 
         if (master) then
@@ -67,6 +63,7 @@ contains
 
         ! the self-energy 
         call cluster_self_energy(ia,Sigma)
+
     end subroutine ed_solve
 
     subroutine cluster_self_energy(ia, Sigma)

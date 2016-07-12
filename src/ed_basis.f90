@@ -4,13 +4,16 @@ module ed_basis
     use dmft_params, only: norb
     use ed_params, only: nbath, KIND_BASIS, nsite
     use numeric_utils, only: icom
+    use alloc, only: re_alloc, de_alloc
     
     implicit none
 
-    public :: generate_basis
-    public :: ed_basis_get
-    public :: ed_basis_idx
-    public :: get_bitidx
+    public :: &
+        generate_basis, &
+        ed_basis_get,   &
+        ed_basis_idx,   &
+        get_bitidx,     &
+        dealloc_basis
 
     type, public :: basis_t
         integer(kind=KIND_BASIS) :: nloc
@@ -22,11 +25,11 @@ module ed_basis
         integer :: ne_up
         integer :: ne_down
 
-        integer(kind=KIND_BASIS), allocatable :: up(:)
-        integer(kind=KIND_BASIS), allocatable :: down(:)
+        integer(kind=KIND_BASIS), pointer :: up(:)
+        integer(kind=KIND_BASIS), pointer :: down(:)
 
-        integer(kind=KIND_BASIS), allocatable :: idx_up(:)
-        integer(kind=KIND_BASIS), allocatable :: idx_down(:)
+        integer(kind=KIND_BASIS), pointer :: idx_up(:)
+        integer(kind=KIND_BASIS), pointer :: idx_down(:)
 
         integer(kind=KIND_BASIS), allocatable :: nlocals(:)
         integer(kind=KIND_BASIS), allocatable :: offsets(:)
@@ -63,7 +66,8 @@ contains
             basis%offsets(i) = basis%offsets(i-1) + basis%nlocals(i-1)
         enddo
 
-        allocate(basis%up(basis%nup), basis%down(basis%ndown))
+        call re_alloc(basis%up, 1, basis%nup, 'ed_basis', 'basis_up')
+        call re_alloc(basis%down, 1, basis%ndown, 'ed_basis', 'basis_down')
 
         nud(1) = ne_up
         nud(2) = ne_down
@@ -79,9 +83,11 @@ contains
             enddo
             
             if (ispin.eq.1) then
-                allocate(basis%idx_up(minrange:maxrange))
+                call re_alloc(basis%idx_up, minrange, maxrange, &
+                    'ed_basis', 'basis_idx_up')
             else
-                allocate(basis%idx_down(minrange:maxrange))
+                call re_alloc(basis%idx_down, minrange, maxrange, &
+                    'ed_basis', 'basis_idx_down')
             endif
             
             counts = 0
@@ -107,6 +113,14 @@ contains
             enddo
         enddo
     end subroutine generate_basis
+
+    subroutine dealloc_basis(basis)
+        type(basis_t), intent(inout) :: basis
+        call de_alloc(basis%up, 'ed_basis', 'basis_up')
+        call de_alloc(basis%down, 'ed_basis', 'basis_down')
+        call de_alloc(basis%idx_up, 'ed_basis', 'basis_idx_up')
+        call de_alloc(basis%idx_down, 'ed_basis', 'basis_idx_down')
+    end subroutine dealloc_basis
 
     ! ref : arXiv:1307.7542 eq (6)
     integer(kind=kind_basis) function ed_basis_get(basis,idx_loc) 

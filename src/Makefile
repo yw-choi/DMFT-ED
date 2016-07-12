@@ -6,9 +6,9 @@ PROGRAM = main
 OBJS = $(PROGRAM).o timer.o constants.o dmft.o \
 	   ed_solver.o dmft_grid.o mpi.o \
 	   impurity_solver.o dmft_params.o io_units.o numeric_utils.o \
-	   dmft_lattice.o ed_projection.o ed_params.o ed_basis.o ed_diag_full.o \
-	   ed_hamiltonian.o ed_operator.o ed_green_fd.o ed_green.o lanczos.o \
-	   lanczos_fd.o ed_diag_arpack.o dmft_green.o
+	   dmft_lattice.o ed_projection.o ed_params.o ed_basis.o \
+	   ed_hamiltonian.o ed_operator.o ed_green.o lanczos.o \
+	   ed_diag_arpack.o dmft_green.o alloc.o ed_eigpair.o
 
 default: $(PROGRAM)
 ##################
@@ -23,18 +23,15 @@ FFLAGS+=-I./fdf
 ### Dependencies ###
 ####################
 $(OBJS): $(FDF)
-$(PROGRAM).o: mpi.o timer.o io_units.o dmft.o
+$(PROGRAM).o: mpi.o timer.o io_units.o alloc.o dmft.o
 dmft.o: dmft_params.o dmft_grid.o impurity_solver.o dmft_lattice.o dmft_green.o
 impurity_solver.o: ed_solver.o 
 dmft_grid.o: constants.o
 dmft_lattice.o: numeric_utils.o
-ed_solver.o: ed_params.o ed_projection.o ed_diag_full.o ed_hamiltonian.o \
-			 ed_green_fd.o ed_green.o ed_diag_arpack.o
-ed_green_fd.o: lanczos_fd.o ed_hamiltonian.o
+ed_solver.o: ed_eigpair.o ed_params.o ed_projection.o \
+			ed_hamiltonian.o ed_green.o ed_diag_arpack.o
 ed_green.o: lanczos.o ed_hamiltonian.o
 lanczos.o: numeric_utils.o
-lanczos_fd.o: numeric_utils.o
-ed_diag_full.o: ed_hamiltonian.o
 ed_diag_arpack.o: ed_params.o
 ed_hamiltonian.o: ed_operator.o ed_basis.o dmft_lattice.o
 ed_params.o: numeric_utils.o

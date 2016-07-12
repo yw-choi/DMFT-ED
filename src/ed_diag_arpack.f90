@@ -5,13 +5,15 @@ module ed_diag_arpack
 
     use mpi
     use dmft_params, only: norb, beta
-    use ed_params, only: nev, nsite, nbath, eigpair_t, sectors, nsector, &
+    use ed_params, only: nev, nsite, nbath, sectors, nsector, &
                          PROB_THRESHOLD, print_arpack_stat
-    use ed_basis, only: generate_basis, basis_t, ed_basis_get
+    use ed_basis, only: generate_basis, basis_t, ed_basis_get, dealloc_basis
     use ed_hamiltonian, only: multiply_H
     use numeric_utils, only: boltzmann_factor, sort
     use utils, only: die
     use timer, only: t1_diag_loop, t2_diag_loop, print_elapsed_time
+    use alloc, only: re_alloc, de_alloc, alloc_count
+    use ed_eigpair, only: eigpair_t, eigpairs, nev_calc
 
     implicit none
 
@@ -21,10 +23,8 @@ module ed_diag_arpack
 
 contains
 
-    subroutine diag_arpack(ia, nev_calc, eigpairs)
+    subroutine diag_arpack(ia)
         integer, intent(in) :: ia
-        integer, intent(out) :: nev_calc
-        type(eigpair_t), allocatable, intent(out) :: eigpairs(:)
 
         type(basis_t) :: basis
         integer :: ne_up, ne_down, nh, nloc, isector, iev, ind(nev*nsector),i, &
@@ -56,7 +56,7 @@ contains
             t2_diag_loop = mpi_wtime(mpierr)    
 
             if (master) then
-                write(*,*) "Matrix-vector multiplication count = ", multcount
+                write(*,*) "    matrix-vector multiplication count = ", multcount
                 call print_elapsed_time("    diagonalization time", &
                                         t1_diag_loop,t2_diag_loop)
             endif
@@ -64,6 +64,8 @@ contains
             do iev=1, nev
                 eigval((isector-1)*nev+iev) = eigpairs_all(iev,isector)%val
             enddo
+
+            call dealloc_basis(basis)
         enddo
 
         ! sort all the eigenvalues
@@ -86,12 +88,26 @@ contains
             endif
         enddo
 
-        allocate(eigpairs(nev_calc))
+        ! take lowest nev_calc eigenvalues
         do i=1,nev_calc
             isector = (ind(i)-1)/nev+1
             iev = mod(ind(i)-1,nev)+1
-            eigpairs(i) = eigpairs_all(iev,isector)
-            eigpairs(i)%prob = prob(ind(i))
+            eigpairs(i)%sector =  eigpairs_all(iev,isector)%sector
+            eigpairs(i)%level  =  eigpairs_all(iev,isector)%level
+            eigpairs(i)%val    =  eigpairs_all(iev,isector)%val
+            eigpairs(i)%prob   =  prob(ind(i))
+            eigpairs(i)%nloc   =  eigpairs_all(iev,isector)%nloc
+            ! This is NOT copying the array.
+            ! Only the pointer is set to eigpairs
+            eigpairs(i)%vec    => eigpairs_all(iev,isector)%vec
+        enddo
+
+        ! and free the rest
+        do i=nev_calc+1,nev*nsector
+            isector = (ind(i)-1)/nev+1
+            iev = mod(ind(i)-1,nev)+1
+            call de_alloc(eigpairs_all(iev,isector)%vec, &
+                "ed_diag_arpack", "eigvec_all")
         enddo
 
         if (master) then
@@ -119,10 +135,8 @@ contains
         character, parameter :: bmat = 'I'
         character(len=2), parameter :: which = 'SA'
 
-        ! double precision :: v(basis%nloc, 2*nev), workd(3*basis%nloc), &
-        !                     resid(basis%nloc)
-        double precision, allocatable :: ax(:), v(:,:), workd(:), resid(:), &
-                                         x_all(:)
+        double precision, allocatable :: ax(:), workd(:), resid(:), &
+                                         x_all(:), v(:,:)
         double precision :: workl(2*nev*(2*nev+8)), d(2*nev,2), sigma, tol
 
         logical :: select(2*nev)
@@ -134,10 +148,14 @@ contains
 
         integer :: i, j, ierr
 
-        allocate(v(basis%nloc,2*nev))
-        allocate(workd(3*basis%nloc))
-        allocate(resid(basis%nloc))
-        allocate(x_all(basis%ntot))
+        allocate( v(basis%nloc,2*nev) )
+        allocate( workd(3*basis%nloc) )
+        allocate( resid(basis%nloc) )
+        allocate( x_all(basis%ntot) )
+        call alloc_count(2*nev*basis%nloc, 'D', 'ed_diag_arpack', 'v')
+        call alloc_count(3*basis%nloc, 'D', 'ed_diag_arpack', 'workd')
+        call alloc_count(basis%nloc, 'D', 'ed_diag_arpack', 'resid')
+        call alloc_count(basis%ntot, 'D', 'ed_diag_arpack', 'x_all')
 
         ldv = basis%nloc
         ncv = 2*nev
@@ -184,14 +202,21 @@ contains
 
                 if (print_arpack_stat) then
                     allocate(ax(basis%nloc))
+                    call alloc_count(basis%nloc, 'D', &
+                        'ed_diag_arpack', 'ax')
+
                     do j=1, nconv
                         call multiply_H(ia, basis, v(:,j), ax, x_all)
                         call daxpy(basis%nloc, -d(j,1), v(1,j), 1, ax, 1)
                         d(j,2) = pdnorm2( comm, basis%nloc, ax, 1 )
                     enddo
+
                     call pdmout(comm, 6, nconv, 2, d, ncv, -6, &
                         'Ritz values and direct residuals')
+
                     deallocate(ax)
+                    call alloc_count(-basis%nloc, 'D', &
+                        'ed_diag_arpack', 'ax')
                 endif 
             end if
         endif
@@ -200,10 +225,18 @@ contains
             eig(i)%sector = isector
             eig(i)%level  = i
             eig(i)%val    = d(i,1)
-            allocate(eig(i)%vec(basis%nloc))
+
+            nullify(eig(i)%vec)
+            call re_alloc(eig(i)%vec, 1, basis%nloc, &
+                            'ed_diag_arpack', 'eigvec_all')
             eig(i)%vec    = v(:,i)
             eig(i)%nloc   = basis%nloc
         enddo
+
         deallocate(v,resid,workd,x_all)
+        call alloc_count(-2*nev*basis%nloc, 'D', 'ed_diag_arpack', 'v')
+        call alloc_count(-3*basis%nloc, 'D', 'ed_diag_arpack', 'workd')
+        call alloc_count(-basis%nloc, 'D', 'ed_diag_arpack', 'resid')
+        call alloc_count(-basis%ntot, 'D', 'ed_diag_arpack', 'x_all')
     end subroutine diagonalization
 end module ed_diag_arpack

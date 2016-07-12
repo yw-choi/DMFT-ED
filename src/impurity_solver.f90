@@ -9,6 +9,7 @@ module impurity_solver
     use dmft_params
     use dmft_grid
     use ed_solver
+    use mpi
 
     implicit none
 
@@ -35,6 +36,10 @@ contains
         integer, intent(in) :: iloop, ia
         double complex, intent(in) :: G0(nwloc,norb,nspin)
         double complex, intent(out) :: Sigma(nwloc,norb,nspin)
+
+        if (master) then
+            write(*,"(1x,a,I1,a,I2,a)") "impurity problem for ia = ",ia
+        endif
 
         select case(solver)
             case ("ED")

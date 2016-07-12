@@ -42,16 +42,6 @@ module ed_params
                               ! from file h_imp.params
         em_present, ek_present, vk_present
 
-    type, public :: eigpair_t
-        integer :: sector  ! sector index
-        integer :: level   ! level index within the sector
-        double precision :: val   ! eigenvalue 
-        double precision :: prob  ! exp(-beta*val)/Z
-
-        integer :: nloc    ! dimension of the eigenvector local to the processor
-        double precision, allocatable :: vec(:) ! eigenvector
-    end type eigpair_t
-
     private
 contains
 
