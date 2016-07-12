@@ -12,7 +12,8 @@ module dmft
                           dmft_green_init, &
                           update_local_green_ftn, &
                           update_weiss_ftn, &
-                          dump_green
+                          dump_green, &
+                          find_density
 
     use impurity_solver, only: impurity_solver_init, solve, solver_post_processing
 
@@ -109,7 +110,9 @@ contains
 
             call update_local_green_ftn
             call update_weiss_ftn
+            call find_density
             call dump_green 
+
 
             t2_loop = mpi_wtime(mpierr)
             call loop_end

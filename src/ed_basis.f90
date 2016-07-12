@@ -66,6 +66,8 @@ contains
             basis%offsets(i) = basis%offsets(i-1) + basis%nlocals(i-1)
         enddo
 
+        nullify(basis%up,basis%down,basis%idx_down,basis%idx_up)
+
         call re_alloc(basis%up, 1, basis%nup, 'ed_basis', 'basis_up')
         call re_alloc(basis%down, 1, basis%ndown, 'ed_basis', 'basis_down')
 

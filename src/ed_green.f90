@@ -11,6 +11,8 @@ module ed_green
     use ed_eigpair, only: eigpair_t, nev_calc, eigpairs
     use alloc, only: re_alloc, de_alloc
 
+    use mpi
+
     implicit none
 
     type :: g_coeff_t
@@ -57,9 +59,13 @@ contains
         integer :: iev, ispin, iorb, isector, ne_up, ne_down, iw, i
         type(basis_t) :: basis, basis_out
         double precision, pointer :: vec_out(:), vec_all(:)
-        double precision :: ap(nstep,nev_calc), bp(nstep,nev_calc), &
-                            an(nstep,nev_calc), bn(nstep,nev_calc)
+        double precision, allocatable :: ap(:,:), bp(:,:), &
+                                         an(:,:), bn(:,:)
         double complex :: z, gr
+
+        allocate(ap(nstep,nev_calc),bp(nstep,nev_calc))
+        allocate(an(nstep,nev_calc),bn(nstep,nev_calc))
+        nullify(vec_all,vec_out)
 
         ia = ia_in
 
@@ -68,6 +74,12 @@ contains
         do ispin = 1,nspin
             do iorb = 1,norb
                 do iev = 1,nev_calc
+                    if (master) then
+                        write(*,"(1x,A,A,I2,A,I2,A,I2,A,I2,A)") &
+                            "Cluster Green's function for (ia,ispin,iorb,iev)=",&
+                            "(",ia,",",ispin,",",iorb,",",iev,")"
+
+                    endif
                     isector = eigpairs(iev)%sector
 
                     ne_up = sectors(isector,1)
@@ -152,6 +164,7 @@ contains
         call dealloc_basis(basis)
         call de_alloc(vec_out, 'ed_green', 'vec_out')
         call de_alloc(vec_all, 'ed_green', 'vec_all')
+        deallocate(ap,bp,an,bn)
 
     end subroutine cluster_green_ftn
 

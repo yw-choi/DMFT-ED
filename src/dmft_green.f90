@@ -13,7 +13,8 @@ module dmft_green
         dmft_green_init, &
         update_local_green_ftn, &
         update_weiss_ftn, &
-        dump_green
+        dump_green, &
+        find_density
 
     double complex, pointer, public :: &
         G_prev(:,:,:,:),   & ! G_prev(nwloc,norb,nspin,na)
@@ -27,6 +28,9 @@ module dmft_green
 
         Sigma(:,:,:,:)       ! Sigma(nwloc,norb,nspin,na)
                              ! self energy
+
+    double precision, allocatable, public :: &
+        density(:,:,:) ! density(norb,nspin,na)  particle density
 
     character(len=100), parameter :: FN_GR_SAVE = "green.save"
 
@@ -44,6 +48,8 @@ contains
                        'dmft_green', 'init')
         call re_alloc( Sigma, 1, nwloc, 1, norb, 1, nspin, 1, na, &
                        'dmft_green', 'init')
+
+        allocate(density(norb,nspin,na))
 
         G_prev = cmplx(0.0d0,0.0d0)
         G      = cmplx(0.0d0,0.0d0)
@@ -353,4 +359,41 @@ contains
             close(IO_GR_DATA)
         endif
     end subroutine import_green_ftn
+
+    subroutine find_density
+
+        integer :: iorb,ispin,ia
+
+        double precision, allocatable :: density_loc(:,:,:)
+        allocate(density_loc(norb,nspin,na))
+
+        density_loc = 0.d0
+        do ia=1,na
+            do ispin=1,nspin
+                do iorb=1,norb
+                    density_loc(iorb,ispin,ia) = sum(real(G(:,iorb,ispin,ia)))
+                enddo
+            enddo
+        enddo
+
+        call mpi_allreduce(density_loc,density,norb*nspin*na,&
+            mpi_double_precision,mpi_sum,comm,mpierr)
+
+        density = density/beta + 0.5d0
+
+        if (master) then
+            write(*,*) "Particle occupancy"
+            do ia=1,na
+                do ispin=1,nspin
+                    do iorb=1,norb
+                        write(*,"(1x,A,I2,A,I2,A,I2,A,F6.3)") &
+                            "n(",iorb,",",ispin,",",ia,") = ", &
+                            density(iorb,ispin,ia)
+                    enddo
+                enddo
+            enddo
+        endif
+
+        deallocate(density_loc)
+    end subroutine find_density
 end module dmft_green
