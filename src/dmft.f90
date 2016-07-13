@@ -113,7 +113,6 @@ contains
             call find_density
             call dump_green 
 
-
             t2_loop = mpi_wtime(mpierr)
             call loop_end
         enddo

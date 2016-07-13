@@ -365,6 +365,7 @@ contains
         integer :: iorb,ispin,ia
 
         double precision, allocatable :: density_loc(:,:,:)
+        double precision :: nocc
         allocate(density_loc(norb,nspin,na))
 
         density_loc = 0.d0
@@ -379,7 +380,7 @@ contains
         call mpi_allreduce(density_loc,density,norb*nspin*na,&
             mpi_double_precision,mpi_sum,comm,mpierr)
 
-        density = density/beta + 0.5d0
+        density = 2.d0*density/beta + 0.5d0
 
         if (master) then
             write(*,*) "Particle occupancy"
@@ -392,6 +393,7 @@ contains
                     enddo
                 enddo
             enddo
+            write(*,"(1x,A,F6.3)") "Total      = ", sum(density)
         endif
 
         deallocate(density_loc)

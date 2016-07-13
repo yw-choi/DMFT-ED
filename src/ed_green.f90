@@ -195,11 +195,11 @@ contains
         g_coeffs(iorb,ispin,ia)%nstep = nstep
         g_coeffs(iorb,ispin,ia)%nev   = nev_calc
 
-        g_coeffs(iorb,ispin,ia)%ap(:,1:nev_calc) = ap
-        g_coeffs(iorb,ispin,ia)%bp(:,1:nev_calc) = bp
+        g_coeffs(iorb,ispin,ia)%ap(:,1:nev_calc) = ap(:,1:nev_calc)
+        g_coeffs(iorb,ispin,ia)%bp(:,1:nev_calc) = bp(:,1:nev_calc)
 
-        g_coeffs(iorb,ispin,ia)%an(:,1:nev_calc) = an
-        g_coeffs(iorb,ispin,ia)%bn(:,1:nev_calc) = bn
+        g_coeffs(iorb,ispin,ia)%an(:,1:nev_calc) = an(:,1:nev_calc)
+        g_coeffs(iorb,ispin,ia)%bn(:,1:nev_calc) = bn(:,1:nev_calc)
 
         deallocate(ap,bp,an,bn)
         call dealloc_basis(basis_out)
