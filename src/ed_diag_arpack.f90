@@ -164,7 +164,7 @@ contains
         tol = 0.0
 
         ishfts = 1
-        maxitr = 500
+        maxitr = 20000
         mode   = 1
 
         iparam(1) = ishfts
@@ -219,6 +219,11 @@ contains
                         'ed_diag_arpack', 'ax')
                 endif 
             end if
+        endif
+
+        if (nconv /= nev) then
+            call die("ed_diag_arpack", "diagonalization not converged properly.")
+            return
         endif
 
         do i=1,nconv
