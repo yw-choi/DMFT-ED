@@ -382,7 +382,12 @@ contains
 
         density = 2.d0*density/beta + 0.5d0
 
+        if (nspin==1) then
+            density = density*2.d0
+        endif
+
         if (master) then
+            write(*,*) 
             write(*,*) "Particle occupancy"
             do ia=1,na
                 do ispin=1,nspin
@@ -393,9 +398,6 @@ contains
                     enddo
                 enddo
             enddo
-            if (nspin==1) then
-                density = density*2
-            endif
             write(*,"(1x,A,F6.3)") "Total       = ", sum(density)
         endif
 

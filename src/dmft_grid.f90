@@ -68,7 +68,7 @@ contains
         ! real frequency grid
         allocate(omega_r(1:nwreal))
         dwr = (wrmax-wrmin)/(nwreal-1)
-        do i = 1, nwloc
+        do i = 1, nwreal
             omega_r(i) = wrmin + dwr*(i-1)
         enddo
 

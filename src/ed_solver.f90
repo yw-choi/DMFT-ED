@@ -8,12 +8,13 @@ module ed_solver
                          nev, nstep, sectors, ek_in, vk_in, diag_method
 
     use ed_hamiltonian, only: ed_hamiltonian_init, ek,vk, dump_hamiltonian_params
-    use ed_green, only: ed_green_init, cluster_green_ftn, G_cl
+    use ed_green, only: ed_green_init, cluster_green_ftn, G_cl, g_coeffs
 
     ! use ed_diag_full, only: diag_full
     use ed_diag_arpack, only: diag_arpack
     use timer, only: t1_green_loop, t2_green_loop, print_elapsed_time
     use ed_eigpair, only: allocate_eigpairs
+    use io_units
 
     implicit none
 
@@ -96,10 +97,40 @@ contains
 
     subroutine ed_post_processing
 
-        integer :: ia,ispin,iorb,iw,istep, iev
+        integer :: ia,ispin,iorb,istep,iev
 
         character(len=100) :: fn
 
+        ! dump green function coefficients
+        if (master) then
+            write(*,*) "Writing cluster Green's function coefficients..."
+            open(unit=IO_G_COEFFS, file="g_coeffs.dat", status="replace")
+            write(IO_G_COEFFS,*) na,2,norb
+            do ia=1,na
+                do ispin=1,2
+                    do iorb=1,norb
+                        write(IO_G_COEFFS,"(2I5)") &
+                            g_coeffs(iorb,ispin,ia)%nstep,&
+                            g_coeffs(iorb,ispin,ia)%nev
+                        do iev=1,g_coeffs(iorb,ispin,ia)%nev
+                            write(IO_G_COEFFS,"(L,1x,4I3,2E)") &
+                                g_coeffs(iorb,ispin,ia)%even,&
+                                ia,ispin,iorb,iev, &
+                                g_coeffs(iorb,ispin,ia)%eigval(iev), &
+                                g_coeffs(iorb,ispin,ia)%prob(iev)
+
+                            write(IO_G_COEFFS,"(4E)") &
+                                (g_coeffs(iorb,ispin,ia)%ap(istep,iev), &
+                                 g_coeffs(iorb,ispin,ia)%bp(istep,iev), &
+                                 g_coeffs(iorb,ispin,ia)%an(istep,iev), &
+                                 g_coeffs(iorb,ispin,ia)%bn(istep,iev), &
+                                 istep=1,g_coeffs(iorb,ispin,ia)%nstep)
+                        enddo
+                    enddo
+                enddo
+            enddo
+            close(IO_G_COEFFS)
+        endif
         call mpi_barrier(comm,mpierr)
 
     end subroutine ed_post_processing

@@ -199,6 +199,7 @@ contains
         call alloc_report( printNow=.true. )
 
         if (master) then
+            write(6,*)
             write(6,"(a)") repeat("=",80)
             write(6,*)
             call print_elapsed_time(" Total Running Time", t1_run, t2_run)

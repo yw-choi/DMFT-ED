@@ -9,4 +9,5 @@ module io_units
     integer, parameter :: IO_GR_DATA     = 100
     integer, parameter :: IO_H_PARAMS    = 101
     integer, parameter :: IO_MEM_REPORT  = 102
+    integer, parameter :: IO_G_COEFFS    = 103
 end module io_units

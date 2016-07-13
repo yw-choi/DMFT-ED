@@ -18,15 +18,19 @@ module ed_green
     type :: g_coeff_t
         integer :: nstep
         integer :: nev
+        logical :: even ! G_up == G_down ?
 
-        double precision, allocatable :: ap(:,:)
+        double precision, allocatable :: eigval(:) ! eigval(nev)
+        double precision, allocatable :: prob(:)
+
+        double precision, allocatable :: ap(:,:) ! ap(nstep,nev)
         double precision, allocatable :: bp(:,:)
         double precision, allocatable :: an(:,:)
         double precision, allocatable :: bn(:,:)
 
     end type g_coeff_t
 
-    type(g_coeff_t), allocatable :: g_coeffs(:,:,:)
+    type(g_coeff_t), allocatable :: g_coeffs(:,:,:) ! g_coeffs(norb,2,na)
     
     double complex, allocatable :: G_cl(:,:,:)
 
@@ -35,12 +39,14 @@ contains
 
     subroutine ed_green_init
         integer :: ia, ispin, iorb
-        allocate(g_coeffs(norb,nspin,na))
+        allocate(g_coeffs(norb,2,na))
         allocate(G_cl(nwloc,norb,nspin))
 
         do ia=1,na
-            do ispin=1,nspin
+            do ispin=1,2
                 do iorb=1,norb
+                    allocate(g_coeffs(iorb,ispin,ia)%eigval(nev))
+                    allocate(g_coeffs(iorb,ispin,ia)%prob(nev))
                     allocate(g_coeffs(iorb,ispin,ia)%ap(nstep, nev))
                     allocate(g_coeffs(iorb,ispin,ia)%bp(nstep, nev))
                     allocate(g_coeffs(iorb,ispin,ia)%an(nstep, nev))
@@ -59,7 +65,11 @@ contains
         integer :: iev, ispin, iorb, isector, ne_up, ne_down, iw, i
         type(basis_t) :: basis
         double complex, allocatable :: gdiag_up(:), gdiag_down(:)
+        double precision, allocatable :: ap(:), bp(:), &
+                                         an(:), bn(:)
+        logical :: even
 
+        allocate(ap(nstep),bp(nstep),an(nstep),bn(nstep))
         allocate(gdiag_up(nwloc),gdiag_down(nwloc))
         nullify(vec_all, vec_out)
 
@@ -74,20 +84,42 @@ contains
                         "(",ia,",",ispin,",",iorb,",",iev,")"
 
                 endif
+
                 isector = eigpairs(iev)%sector
 
                 ne_up   = sectors(isector,1)
                 ne_down = sectors(isector,2)
 
+                if (nspin==2.or.ne_up/=ne_down) then
+                    even = .false.
+                else
+                    even = .true.
+                endif
+
                 call generate_basis(ne_up, ne_down, basis)
 
                 call re_alloc(vec_all, 1, basis%ntot, 'ed_green', 'vec_all')
 
-                call green_diag(ia,iorb,iev,ispin,basis,gdiag_up)
+                g_coeffs(iorb,1,ia)%nstep = nstep
+                g_coeffs(iorb,1,ia)%nev   = nev_calc
+                g_coeffs(iorb,1,ia)%even  = even
+                g_coeffs(iorb,1,ia)%eigval(iev) = eigpairs(iev)%val
+                g_coeffs(iorb,1,ia)%prob(iev) = eigpairs(iev)%prob
+                g_coeffs(iorb,2,ia)%nstep = nstep
+                g_coeffs(iorb,2,ia)%nev   = nev_calc
+                g_coeffs(iorb,2,ia)%even  = even
+                g_coeffs(iorb,2,ia)%eigval(iev) = eigpairs(iev)%val
+                g_coeffs(iorb,2,ia)%prob(iev) = eigpairs(iev)%prob
+                
+                call green_diag(ia,iorb,iev,ispin,basis,gdiag_up,&
+                                g_coeffs(iorb,1,ia)%ap(:,iev), &
+                                g_coeffs(iorb,1,ia)%bp(:,iev), &
+                                g_coeffs(iorb,1,ia)%an(:,iev), &
+                                g_coeffs(iorb,1,ia)%bn(:,iev))
 
                 ! in case of paramagnetic case with same up/down spin
                 ! there is no need to calculate G_down
-                if (nspin==2.or.ne_up/=ne_down) then
+                if (.not.even) then
                     ispin = 2
                     if (master) then
                         write(*,"(1x,A,A,I2,A,I2,A,I2,A,I2,A)") &
@@ -95,7 +127,13 @@ contains
                             "(",ia,",",ispin,",",iorb,",",iev,")"
 
                     endif
-                    call green_diag(ia,iorb,iev,ispin,basis,gdiag_down)
+                    call green_diag(ia,iorb,iev,ispin,basis,gdiag_down,&
+                                    g_coeffs(iorb,2,ia)%ap(:,iev), &
+                                    g_coeffs(iorb,2,ia)%bp(:,iev), &
+                                    g_coeffs(iorb,2,ia)%an(:,iev), &
+                                    g_coeffs(iorb,2,ia)%bn(:,iev))
+                else
+                    g_coeffs(iorb,2,ia) = g_coeffs(iorb,1,ia)
                 endif
 
                 if (nspin==1.and.ne_up==ne_down) then
@@ -113,22 +151,20 @@ contains
         call dealloc_basis(basis)
         call de_alloc(vec_all, 'ed_green', 'vec_all')
         call de_alloc(vec_out, 'ed_green', 'vec_out')
+        deallocate(ap,bp,an,bn)
 
     end subroutine cluster_green_ftn
 
-    subroutine green_diag(ia,iorb,iev,ispin,basis,gdiag)
+    subroutine green_diag(ia,iorb,iev,ispin,basis,gdiag,ap,bp,an,bn)
         integer, intent(in) :: ia,iorb,iev,ispin
         type(basis_t), intent(in) :: basis
+        double precision, intent(out) :: ap(nstep), bp(nstep), &
+                                         an(nstep), bn(nstep)
         double complex, intent(out) :: gdiag(nwloc)
 
         integer :: iw
         type(basis_t) :: basis_out
-        double precision, allocatable :: ap(:,:), bp(:,:), &
-                                         an(:,:), bn(:,:)
         double complex :: z, gr
-
-        allocate(ap(nstep,nev_calc),bp(nstep,nev_calc))
-        allocate(an(nstep,nev_calc),bn(nstep,nev_calc))
 
         gdiag = cmplx(0.d0,0.d0)
 
@@ -148,16 +184,14 @@ contains
             iorb, ispin, basis_out, vec_out)
 
         ! 2. lanczos coefficients
-        call lanczos_iteration(ia, basis_out, vec_out, nstep, &
-                                    ap(:,iev), bp(:,iev))
+        call lanczos_iteration(ia, basis_out, vec_out, nstep, ap, bp)
 
-        bp(1,iev) = mpi_norm(vec_out, basis_out%nloc)
+        bp(1) = mpi_norm(vec_out, basis_out%nloc)
 
         ! 3. green function as a continued fraction
         do iw=1,nwloc
             z = cmplx(eigpairs(iev)%val, omega(iw))
-            gr = continued_fraction_p(z, nstep, ap(:,iev), &
-                                                bp(:,iev))
+            gr = continued_fraction_p(z, nstep, ap, bp)
             gr = gr*eigpairs(iev)%prob
             gdiag(iw) = gdiag(iw)+gr
         enddo
@@ -178,30 +212,18 @@ contains
             iorb, ispin, basis_out, vec_out )
 
         ! 2. lanczos coefficients
-        call lanczos_iteration(ia, basis_out, vec_out, nstep, &
-                                   an(:,iev), bn(:,iev))
-        bn(1,iev) = mpi_norm(vec_out, basis_out%nloc)
+        call lanczos_iteration(ia, basis_out, vec_out, nstep, an, bn)
+        bn(1) = mpi_norm(vec_out, basis_out%nloc)
 
         ! 3. green function as a continued fraction
         do iw = 1,nwloc
             z = cmplx(-eigpairs(iev)%val, omega(iw))
-            gr = continued_fraction_m(z, nstep, an(:,iev), &
-                                                bn(:,iev))
+            gr = continued_fraction_m(z, nstep, an, bn)
             gr = gr*eigpairs(iev)%prob
             
             gdiag(iw) = gdiag(iw)+gr
         enddo
 
-        g_coeffs(iorb,ispin,ia)%nstep = nstep
-        g_coeffs(iorb,ispin,ia)%nev   = nev_calc
-
-        g_coeffs(iorb,ispin,ia)%ap(:,1:nev_calc) = ap(:,1:nev_calc)
-        g_coeffs(iorb,ispin,ia)%bp(:,1:nev_calc) = bp(:,1:nev_calc)
-
-        g_coeffs(iorb,ispin,ia)%an(:,1:nev_calc) = an(:,1:nev_calc)
-        g_coeffs(iorb,ispin,ia)%bn(:,1:nev_calc) = bn(:,1:nev_calc)
-
-        deallocate(ap,bp,an,bn)
         call dealloc_basis(basis_out)
     end subroutine green_diag
 end module ed_green
