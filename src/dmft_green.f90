@@ -393,7 +393,10 @@ contains
                     enddo
                 enddo
             enddo
-            write(*,"(1x,A,F6.3)") "Total      = ", sum(density)
+            if (nspin==1) then
+                density = density*2
+            endif
+            write(*,"(1x,A,F6.3)") "Total       = ", sum(density)
         endif
 
         deallocate(density_loc)

@@ -1,11 +1,11 @@
 
-FC      = /opt/mvapich2-x/intel/bin/mpif90
+FC      = mpif90
 FFLAGS = -traceback -fast -no-ipo -xSSE4.2 -I$(MKLROOT)/include/fftw
+#FFLAGS  = -traceback -C -CB -I$(MKLROOT)/include/fftw -debug all
 
-# FFLAGS  = -traceback -C -CB -I$(MKLROOT)/include/fftw -debug all
 FFTW    = $(MKLROOT)/interfaces/fftw3xf/libfftw3xf_intel.a
-ARPACK  = /lily/ywchoe/workspace/DMFT-ED/lib/ARPACK/libarpack_LINUX.a
-PARPACK = /lily/ywchoe/workspace/DMFT-ED/lib/ARPACK/parpack_MPI-LINUX.a
+ARPACK  = /Users/ywchoe/opt/ARPACK/libarpack_OSX.a
+PARPACK = /Users/ywchoe/opt/ARPACK/parpack_MPI-OSX.a
 MKL     = -mkl=sequential
 LIBS    = $(MKL) $(PARPACK) $(ARPACK) $(FFTW)
 
