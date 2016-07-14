@@ -41,7 +41,7 @@ $(FDF):
 	cd fdf ; $(MAKE);
 
 $(PROGRAM): $(OBJS)
-	$(FC) -o $(PROGRAM).x $(LDFLAGS) $(OBJS) $(LIBS) 
+	$(FC) -o dmft-ed.x $(LDFLAGS) $(OBJS) $(LIBS) 
 
 clean:
 	rm -f *.x *.o  *.a
