@@ -172,29 +172,29 @@ contains
                                         mpierr)
                     call mpi_allgatherv(G(:,iorb,ispin,ia), &
                                         nwloc, &
-                                        mpi_double_precision, &
+                                        mpi_double_complex, &
                                         G_all, &
                                         nw_procs, &
                                         nw_offsets, &
-                                        mpi_double_precision, &
+                                        mpi_double_complex, &
                                         comm, &
                                         mpierr)
                     call mpi_allgatherv(G0(:,iorb,ispin,ia), &
                                         nwloc, &
-                                        mpi_double_precision, &
+                                        mpi_double_complex, &
                                         G0_all, &
                                         nw_procs, &
                                         nw_offsets, &
-                                        mpi_double_precision, &
+                                        mpi_double_complex, &
                                         comm, &
                                         mpierr)
                     call mpi_allgatherv(Sigma(:,iorb,ispin,ia), &
                                         nwloc, &
-                                        mpi_double_precision, &
+                                        mpi_double_complex, &
                                         Sigma_all, &
                                         nw_procs, &
                                         nw_offsets, &
-                                        mpi_double_precision, &
+                                        mpi_double_complex, &
                                         comm, &
                                         mpierr)
 
@@ -339,16 +339,16 @@ contains
                     endif
 
                     call mpi_scatterv(G_all, nw_procs, nw_offsets, &
-                        mpi_double_precision, G(:,iorb,ispin,ia), nwloc, &
-                        mpi_double_precision, 0, comm, mpierr)
+                        mpi_double_complex, G(:,iorb,ispin,ia), nwloc, &
+                        mpi_double_complex, 0, comm, mpierr)
 
                     call mpi_scatterv(G0_all, nw_procs, nw_offsets, &
-                        mpi_double_precision, G0(:,iorb,ispin,ia), nwloc, &
-                        mpi_double_precision, 0, comm, mpierr)
+                        mpi_double_complex, G0(:,iorb,ispin,ia), nwloc, &
+                        mpi_double_complex, 0, comm, mpierr)
 
                     call mpi_scatterv(Sigma_all, nw_procs, nw_offsets, &
-                        mpi_double_precision, Sigma(:,iorb,ispin,ia), nwloc, &
-                        mpi_double_precision, 0, comm, mpierr)
+                        mpi_double_complex, Sigma(:,iorb,ispin,ia), nwloc, &
+                        mpi_double_complex, 0, comm, mpierr)
 
                 enddo
             enddo
