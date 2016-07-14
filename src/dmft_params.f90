@@ -66,8 +66,16 @@ contains
 
         U = fdf_get("DMFT.U", 1.0D0)
         Jex = fdf_get("DMFT.J",0.3D0) 
-        Up = fdf_get("DMFT.Up",0.4D0)
-        Jp = fdf_get("DMFT.Jp",0.3D0) 
+        Up = fdf_get("DMFT.Up",-1.0d0)
+        Jp = fdf_get("DMFT.Jp",-1.0d0) 
+
+        if (Up<0) then
+            Up = U - 2*Jex
+        endif
+
+        if (Jp<0) then
+            Jp = Jex
+        endif
 
         Mu = fdf_get("DMFT.Mu",1.0D0)
         beta = fdf_get("DMFT.beta", 100.0D0)
